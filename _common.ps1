@@ -141,19 +141,48 @@ function Remove-StaleRepoFiles {
     return $deleted.ToArray()
 }
 
+function Remove-StaleClaudeFiles {
+    param(
+        [Parameter(Mandatory)][string]$ClaudeDir,
+        [Parameter(Mandatory)][string]$SyncDir,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+    )
+    $deleted = [System.Collections.Generic.List[string]]::new()
+
+    Get-ChildItem -Path $ClaudeDir -Recurse -File | ForEach-Object {
+        $fullPath = $_.FullName
+        $relPath  = $fullPath.Substring($ClaudeDir.Length).TrimStart('\', '/').Replace('\', '/')
+        if (Test-IsExcluded $relPath $Exclusions) { return }
+
+        $repoFile = Join-Path $SyncDir ($relPath.Replace('/', '\'))
+        if (-not (Test-Path $repoFile)) {
+            Remove-Item $fullPath -Force
+            $deleted.Add($relPath)
+        }
+    }
+    return $deleted.ToArray()
+}
+
 # CONFLICT DETECTION
 
 function Get-LocalChangedFiles {
     param(
         [Parameter(Mandatory)][string]$ClaudeDir,
         [Parameter(Mandatory)][string]$RepoDir,
+        [Parameter(Mandatory)][string]$SyncDir,
         [Parameter(Mandatory)][string]$CommitHash,
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
     )
+    # Prefix to strip when mapping repo-relative paths back to .claude-relative paths
+    $subdirPrefix = ''
+    if ($SyncDir -ne $RepoDir) {
+        $subdirPrefix = $SyncDir.Substring($RepoDir.Length).TrimStart('\', '/').Replace('\', '/') + '/'
+    }
+
     # Copy .claude into the repo working tree, ask git what changed vs CommitHash,
     # then restore the working tree. This lets git handle binary files correctly.
     try {
-        Copy-ClaudeToRepo $ClaudeDir $RepoDir $Exclusions | Out-Null
+        Copy-ClaudeToRepo $ClaudeDir $SyncDir $Exclusions | Out-Null
 
         $diffOutput = & git -C $RepoDir diff --name-only $CommitHash 2>&1
         if ($LASTEXITCODE -ne 0) {
@@ -166,7 +195,11 @@ function Get-LocalChangedFiles {
         if ($LASTEXITCODE -eq 0) {
             foreach ($repoRel in ($atCommit -split "`n" | Where-Object { $_ -ne '' })) {
                 if (Test-IsExcluded $repoRel $Exclusions) { continue }
-                $localFull = Join-Path $ClaudeDir ($repoRel.Replace('/', '\'))
+                # Strip subdir prefix to get .claude-relative path
+                $claudeRel = if ($subdirPrefix -ne '' -and $repoRel.StartsWith($subdirPrefix)) {
+                    $repoRel.Substring($subdirPrefix.Length)
+                } else { $repoRel }
+                $localFull = Join-Path $ClaudeDir ($claudeRel.Replace('/', '\'))
                 if (-not (Test-Path $localFull)) {
                     if ($changed -notcontains $repoRel) {
                         $changed += $repoRel
@@ -203,10 +236,11 @@ function Test-ConflictExists {
     param(
         [Parameter(Mandatory)][string]$ClaudeDir,
         [Parameter(Mandatory)][string]$RepoDir,
+        [Parameter(Mandatory)][string]$SyncDir,
         [Parameter(Mandatory)][string]$CommitHash,
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
     )
-    $localChanged  = Get-LocalChangedFiles  $ClaudeDir $RepoDir $CommitHash $Exclusions
+    $localChanged  = Get-LocalChangedFiles  $ClaudeDir $RepoDir $SyncDir $CommitHash $Exclusions
     $remoteChanged = Get-RemoteChangedFiles $RepoDir $CommitHash
     $conflictFiles = $localChanged | Where-Object { $remoteChanged -contains $_ }
 

@@ -47,15 +47,24 @@ while ($repoUrl -eq '') {
     }
 }
 
+# REPO SUBDIR
+
+$rawSubdir  = (Read-Host "Subdirectory in repo to sync into (leave blank for root)").Trim()
+$repoSubdir = if ($rawSubdir -ne '') { $rawSubdir.Trim('/\').Replace('\', '/') } else { '' }
+
 # RESOLVE PATHS
 
 $claudeDir = Get-ClaudeDir
 $repoDir   = Get-RepoDir
+$syncDir   = if ($repoSubdir -ne '') { Join-Path $repoDir $repoSubdir.Replace('/', '\') } else { $repoDir }
 $syncRoot  = Split-Path $repoDir -Parent
 
 Write-Host ""
 Write-Host "Claude dir : $claudeDir"
 Write-Host "Repo cache : $repoDir"
+if ($repoSubdir -ne '') {
+    Write-Host "Sync subdir: $repoSubdir"
+}
 Write-Host "Config     : $(Get-SyncConfigPath)"
 Write-Host ""
 
@@ -104,10 +113,18 @@ if ($null -eq $initialCommit) {
     Write-Host "Created .gitattributes in empty repo (line-ending normalisation)."
 }
 
+# ENSURE SYNC SUBDIR EXISTS IN REPO
+
+if ($repoSubdir -ne '' -and -not (Test-Path $syncDir)) {
+    New-Item -ItemType Directory -Path $syncDir -Force | Out-Null
+    Write-Host "Created sync subdirectory: $repoSubdir"
+}
+
 # WRITE CONFIG
 
 $config = [PSCustomObject]@{
     repoUrl        = $repoUrl
+    repoSubdir     = $repoSubdir
     repoDir        = $repoDir
     claudeDir      = $claudeDir
     lastSyncCommit = $initialCommit

@@ -20,6 +20,7 @@ if ($null -eq $config) {
 
 $claudeDir  = $config.claudeDir
 $repoDir    = $config.repoDir
+$syncDir    = if ($config.repoSubdir) { Join-Path $repoDir $config.repoSubdir.Replace('/', '\') } else { $repoDir }
 $exclusions = @($config.exclusions)
 $lastSync   = $config.lastSyncCommit
 
@@ -57,8 +58,8 @@ try {
 # STAGE FILES
 
 Write-Host "Copying $claudeDir to repo..."
-$copied  = Copy-ClaudeToRepo  $claudeDir $repoDir $exclusions
-$deleted = Remove-StaleRepoFiles $repoDir $claudeDir $exclusions
+$copied  = Copy-ClaudeToRepo     $claudeDir $syncDir $exclusions
+$deleted = Remove-StaleRepoFiles $syncDir   $claudeDir $exclusions
 
 if ($copied.Count -gt 0 -or $deleted.Count -gt 0) {
     Write-Host "  Staged   : $($copied.Count) file(s)"

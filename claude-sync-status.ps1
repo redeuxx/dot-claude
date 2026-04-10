@@ -21,6 +21,7 @@ if ($null -eq $config) {
 
 $claudeDir  = $config.claudeDir
 $repoDir    = $config.repoDir
+$syncDir    = if ($config.repoSubdir) { Join-Path $repoDir $config.repoSubdir.Replace('/', '\') } else { $repoDir }
 $exclusions = @($config.exclusions)
 $lastSync   = $config.lastSyncCommit
 $lastTime   = $config.lastSyncTime
@@ -31,6 +32,9 @@ Assert-GitAvailable
 
 Write-Host ""
 Write-Host "Repo       : $($config.repoUrl)"
+if ($config.repoSubdir) {
+    Write-Host "Subdir     : $($config.repoSubdir)"
+}
 if ($null -ne $lastTime -and $lastTime -ne '') {
     Write-Host "Last sync  : $lastTime"
 } else {
@@ -86,7 +90,7 @@ if ($null -eq $lastSync -or $lastSync -eq '') {
     Write-Host "Local  : .claude directory not found at $claudeDir"
 } else {
     try {
-        $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $lastSync $exclusions)
+        $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $syncDir $lastSync $exclusions)
         if ($localChanged.Count -eq 0) {
             Write-Host "Local  : no changes since last sync"
         } else {
