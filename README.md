@@ -22,9 +22,16 @@ Run this once per machine:
 .\claude-sync-init.ps1
 ```
 
-You will be prompted for your private GitHub repo URL (e.g. `https://github.com/you/claude-settings.git`). The script clones the repo to `~/.claude-sync/repo/` and writes a local config to `~/.claude-sync/config.json`.
+You will be prompted for:
+
+- **Repo URL** — your private GitHub repo (e.g. `https://github.com/you/claude-settings.git`)
+- **Subdirectory** — an optional path within the repo to sync into (e.g. `claude`). Leave blank to use the repo root.
+
+The script clones the repo to `~/.claude-sync/repo/` and writes a local config to `~/.claude-sync/config.json`.
 
 If the repo is brand new (empty), run push first. If it already has settings from another machine, run pull first.
+
+Re-running init on a machine that is already configured will prompt before overwriting.
 
 ## Usage
 
@@ -34,7 +41,7 @@ If the repo is brand new (empty), run push first. If it already has settings fro
 .\claude-sync-pull.ps1
 ```
 
-Fetches the latest commits and copies repo contents into `~/.claude`. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
+Fetches the latest commits and copies repo contents into `~/.claude`. Files in `~/.claude` that no longer exist in the repo are removed, making pull a true mirror. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
 
 ### Upload local settings to GitHub
 
@@ -42,7 +49,7 @@ Fetches the latest commits and copies repo contents into `~/.claude`. If both lo
 .\claude-sync-push.ps1
 ```
 
-Copies `~/.claude` into the local repo clone, commits with a timestamp and machine name, and pushes to GitHub. If the remote is ahead of your last sync, you will be warned before proceeding.
+Copies `~/.claude` into the local repo clone, removes any repo files that no longer exist locally, commits with a timestamp and machine name, and pushes to GitHub. If the remote is ahead of your last sync, you will be warned before proceeding.
 
 ### Check what has changed
 
@@ -93,7 +100,7 @@ Choosing **Remote** overwrites your local files with the repo version.
 **Setting up a new machine:**
 
 ```powershell
-.\claude-sync-init.ps1   # enter your repo URL
+.\claude-sync-init.ps1   # enter repo URL and optional subdirectory
 .\claude-sync-pull.ps1   # download your settings
 ```
 
