@@ -76,7 +76,7 @@ The following are excluded from syncing by default (local/ephemeral data):
 ```
 *.log  .credentials.json  cache  .tmp  ide  backups  debug  downloads
 file-history  mcp-needs-auth-cache.json  plans  policy-limits.json
-projects  sessions  shell-snapshots  statsig  telemetry  settings.local.json
+projects  sessions  shell-snapshots  statsig  telemetry  settings.local.json  todos
 ```
 
 To customize, edit the `exclusions` array in `~/.claude-sync/config.json`.
