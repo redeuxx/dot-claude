@@ -38,10 +38,12 @@ Re-running init on a machine that is already configured will prompt before overw
 ### Download settings from GitHub
 
 ```powershell
-.\claude-sync-pull.ps1
+.\claude-sync-pull.ps1 [-Force]
 ```
 
 Fetches the latest commits and copies repo contents into `~/.claude`. Files in `~/.claude` that no longer exist in the repo are removed, making pull a true mirror. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
+
+Use `-Force` to re-copy all files even when the remote commit matches the last sync (useful if files are missing from `~/.claude` without any new commits).
 
 ### Upload local settings to GitHub
 
