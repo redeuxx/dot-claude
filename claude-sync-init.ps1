@@ -149,6 +149,7 @@ $config = [PSCustomObject]@{
         'telemetry'
         'settings.local.json'
         'todos'
+        'plugins'
     )
 }
 Save-SyncConfig $config
