@@ -95,15 +95,11 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# INITIAL COMMIT HASH (null if empty repo)
+# INITIAL COMMIT HASH
+# Always null — init clones but does not copy files to .claude, so there is
+# no sync baseline yet. Pull will detect null and do a real first-time sync.
 
 $initialCommit = $null
-try {
-    $initialCommit = (& git -C $repoDir rev-parse HEAD 2>&1).Trim()
-    if ($LASTEXITCODE -ne 0) { $initialCommit = $null }
-} catch {
-    $initialCommit = $null
-}
 
 # CREATE .gitattributes IF REPO IS EMPTY (normalise line endings)
 
