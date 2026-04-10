@@ -2,10 +2,17 @@
 # claude-sync-pull.ps1 — Fetch remote repo and sync contents into local ~/.claude.
 #
 # USAGE:
-#   .\claude-sync-pull.ps1
+#   .\claude-sync-pull.ps1 [-Force]
+#
+# OPTIONS:
+#   -Force    Re-copy all files even if the remote commit matches the last sync.
 #
 # NOTE: You may need to allow script execution first:
 #   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+param(
+    [switch]$Force
+)
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
@@ -41,7 +48,7 @@ try {
     exit 1
 }
 
-if ($remoteHead -eq $lastSync) {
+if ($remoteHead -eq $lastSync -and -not $Force) {
     Write-Host "Already up to date."
     exit 0
 }
