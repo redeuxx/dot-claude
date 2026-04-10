@@ -190,7 +190,10 @@ function Get-LocalChangedFiles {
         }
         # Also include untracked files (new files not yet committed)
         $untrackedOutput = & git -C $RepoDir ls-files --others --exclude-standard 2>&1
-        $changed = ($diffOutput + "`n" + $untrackedOutput) -split "`n" | Where-Object { $_ -ne '' }
+        $changed = @(
+            ($diffOutput     | Where-Object { $_ -ne '' })
+            ($untrackedOutput | Where-Object { $_ -ne '' })
+        )
 
         # Also detect files deleted locally (present in repo at CommitHash but not in .claude)
         $atCommit = & git -C $RepoDir ls-tree -r --name-only $CommitHash 2>&1
