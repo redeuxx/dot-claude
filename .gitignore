@@ -1,0 +1,10 @@
+# Windows
+Thumbs.db
+Desktop.ini
+
+# PowerShell
+*.psm1.bak
+
+# Editor
+.vscode/
+*.tmp
