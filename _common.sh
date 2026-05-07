@@ -279,16 +279,83 @@ get_remote_head_commit() {
 
 # PREREQUISITE CHECKS
 
+_install_hint() {
+    local tool="$1"
+    local os
+    os="$(uname -s)"
+
+    case "$tool" in
+        git)
+            echo "  Install git:" >&2
+            if [[ "$os" == Darwin ]]; then
+                echo "    macOS (Homebrew) : brew install git" >&2
+                echo "    macOS (Xcode)    : xcode-select --install" >&2
+            else
+                _linux_pkg_hint "git" "git" "git"
+            fi
+            echo "    Download         : https://git-scm.com/downloads" >&2
+            ;;
+        gh)
+            echo "  Install GitHub CLI (gh):" >&2
+            if [[ "$os" == Darwin ]]; then
+                echo "    macOS (Homebrew) : brew install gh" >&2
+            else
+                _linux_pkg_hint "gh" "gh" "github-cli"
+                echo "    Linux (manual)   : https://github.com/cli/cli/blob/trunk/docs/install_linux.md" >&2
+            fi
+            echo "    Download         : https://cli.github.com/" >&2
+            ;;
+        jq)
+            echo "  Install jq:" >&2
+            if [[ "$os" == Darwin ]]; then
+                echo "    macOS (Homebrew) : brew install jq" >&2
+            else
+                _linux_pkg_hint "jq" "jq" "jq"
+            fi
+            echo "    Download         : https://jqlang.github.io/jq/download/" >&2
+            ;;
+    esac
+}
+
+# Prints distro-appropriate package manager commands for a package.
+# Args: apt_pkg dnf_pkg pacman_pkg
+_linux_pkg_hint() {
+    local apt_pkg="$1" dnf_pkg="$2" pacman_pkg="$3"
+    # Detect distro from /etc/os-release if available.
+    local distro_id=""
+    if [[ -f /etc/os-release ]]; then
+        distro_id=$(. /etc/os-release && echo "${ID_LIKE:-$ID}" | tr '[:upper:]' '[:lower:]')
+    fi
+    case "$distro_id" in
+        *debian*|*ubuntu*)
+            echo "    Debian/Ubuntu    : sudo apt install $apt_pkg" >&2 ;;
+        *fedora*|*rhel*|*centos*)
+            echo "    Fedora/RHEL      : sudo dnf install $dnf_pkg" >&2 ;;
+        *arch*)
+            echo "    Arch             : sudo pacman -S $pacman_pkg" >&2 ;;
+        *)
+            # Unknown or no /etc/os-release — show all three.
+            echo "    Debian/Ubuntu    : sudo apt install $apt_pkg" >&2
+            echo "    Fedora/RHEL      : sudo dnf install $dnf_pkg" >&2
+            echo "    Arch             : sudo pacman -S $pacman_pkg" >&2
+            ;;
+    esac
+}
+
 assert_git_available() {
     if ! command -v git &>/dev/null; then
         echo "Error: git is not installed or not on PATH." >&2
+        echo "" >&2
+        _install_hint git
         exit 1
     fi
 }
 
 assert_gh_available() {
     if ! command -v gh &>/dev/null; then
-        echo "Error: GitHub CLI (gh) is not installed or not on PATH. Install from: https://cli.github.com/" >&2
+        echo "Error: GitHub CLI (gh) is not installed or not on PATH." >&2
+        echo "" >&2
+        _install_hint gh
         exit 1
     fi
 }
@@ -302,7 +369,9 @@ assert_gh_authenticated() {
 
 assert_jq_available() {
     if ! command -v jq &>/dev/null; then
-        echo "Error: jq is required. Install with: sudo apt install jq  (or brew install jq)" >&2
+        echo "Error: jq is not installed or not on PATH." >&2
+        echo "" >&2
+        _install_hint jq
         exit 1
     fi
 }

@@ -12,15 +12,7 @@ source "$(dirname "$0")/_common.sh"
 assert_jq_available
 assert_git_available
 
-if ! command -v gh &>/dev/null; then
-    echo "GitHub CLI (gh) is required but was not found on this machine."
-    echo ""
-    echo "Download it from: https://cli.github.com/"
-    echo ""
-    echo "After installing, run: gh auth login"
-    exit 1
-fi
-
+assert_gh_available
 assert_gh_authenticated
 
 # RE-INIT WARNING
