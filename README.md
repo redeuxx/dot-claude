@@ -1,25 +1,42 @@
 # Claude Code Settings Sync
 
-Sync your `~/.claude` directory across multiple Windows machines via a private GitHub repo.
+Sync your `~/.claude` directory across multiple machines via a private GitHub repo. Scripts are available for Windows (PowerShell) and Linux/macOS (Bash).
 
 ## Prerequisites
 
-- [Git for Windows](https://git-scm.com/)
-- [GitHub CLI (`gh`)](https://cli.github.com/) — authenticated via `gh auth login`
-- PowerShell 5.1 or later
+| Tool | Windows | Linux | macOS |
+|---|---|---|---|
+| Git | [git-scm.com](https://git-scm.com/) | `sudo apt install git` | `brew install git` |
+| GitHub CLI | [cli.github.com](https://cli.github.com/) | [install guide](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) | `brew install gh` |
+| jq *(Bash only)* | — | `sudo apt install jq` | `brew install jq` |
+| PowerShell 5.1+ *(Windows only)* | built-in | — | — |
 
-You may also need to allow script execution:
+After installing GitHub CLI, authenticate once:
+
+```sh
+gh auth login
+```
+
+On Windows you may also need to allow script execution:
 
 ```powershell
 Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
 ```
+
+If a required tool is missing, the scripts will print platform-specific install instructions and exit.
 
 ## First-Time Setup
 
 Run this once per machine:
 
 ```powershell
+# Windows
 .\claude-sync-init.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-init.sh
 ```
 
 You will be prompted for:
@@ -38,17 +55,29 @@ Re-running init on a machine that is already configured will prompt before overw
 ### Download settings from GitHub
 
 ```powershell
+# Windows
 .\claude-sync-pull.ps1 [-Force]
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-pull.sh [--force]
 ```
 
 Fetches the latest commits and copies repo contents into `~/.claude`. Files in `~/.claude` that no longer exist in the repo are removed, making pull a true mirror. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
 
-Use `-Force` to re-copy all files even when the remote commit matches the last sync (useful if files are missing from `~/.claude` without any new commits).
+Use `-Force` / `--force` to re-copy all files even when the remote commit matches the last sync (useful if files are missing from `~/.claude` without any new commits).
 
 ### Upload local settings to GitHub
 
 ```powershell
+# Windows
 .\claude-sync-push.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-push.sh
 ```
 
 Copies `~/.claude` into the local repo clone, removes any repo files that no longer exist locally, commits with a timestamp and machine name, and pushes to GitHub. If the remote is ahead of your last sync, you will be warned before proceeding.
@@ -56,7 +85,13 @@ Copies `~/.claude` into the local repo clone, removes any repo files that no lon
 ### Check what has changed
 
 ```powershell
+# Windows
 .\claude-sync-status.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-status.sh
 ```
 
 Read-only. Shows which files differ between your local `~/.claude` and the remote repo since the last sync. Highlights any conflicts. Makes no changes.
@@ -102,18 +137,37 @@ Choosing **Remote** overwrites your local files with the repo version.
 **Setting up a new machine:**
 
 ```powershell
-.\claude-sync-init.ps1   # enter repo URL and optional subdirectory
-.\claude-sync-pull.ps1   # download your settings
+# Windows
+.\claude-sync-init.ps1
+.\claude-sync-pull.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-init.sh
+bash claude-sync-pull.sh
 ```
 
 **After making local changes:**
 
 ```powershell
+# Windows
 .\claude-sync-push.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-push.sh
 ```
 
 **Before making changes (to get latest from another machine):**
 
 ```powershell
+# Windows
 .\claude-sync-pull.ps1
+```
+
+```bash
+# Linux / macOS
+bash claude-sync-pull.sh
 ```
