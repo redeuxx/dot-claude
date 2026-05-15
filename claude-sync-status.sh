@@ -137,4 +137,7 @@ if [[ ${#local_changed[@]} -gt 0 && ${#remote_changed[@]} -gt 0 ]]; then
     fi
 fi
 
+if [[ "$verbose" == false ]]; then
+    echo "Tip: run with --verbose to list changed files."
+fi
 echo ""

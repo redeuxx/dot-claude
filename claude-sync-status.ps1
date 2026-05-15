@@ -126,4 +126,7 @@ if ($localChanged.Count -gt 0 -and $remoteChanged.Count -gt 0) {
     }
 }
 
+if (-not $Verbose) {
+    Write-Host "Tip: run with -Verbose to list changed files."
+}
 Write-Host ""
