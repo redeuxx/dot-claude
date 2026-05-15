@@ -86,15 +86,17 @@ Copies `~/.claude` into the local repo clone, removes any repo files that no lon
 
 ```powershell
 # Windows
-.\claude-sync-status.ps1
+.\claude-sync-status.ps1 [-Verbose]
 ```
 
 ```bash
 # Linux / macOS
-bash claude-sync-status.sh
+bash claude-sync-status.sh [--verbose|-v]
 ```
 
-Read-only. Shows which files differ between your local `~/.claude` and the remote repo since the last sync. Highlights any conflicts. Makes no changes.
+Read-only. Reports whether there are local changes to push or remote changes to pull since the last sync, and highlights any conflicts. Makes no changes.
+
+By default only counts are shown. Pass `-Verbose` / `--verbose` to list each changed file.
 
 ## File Layout
 
