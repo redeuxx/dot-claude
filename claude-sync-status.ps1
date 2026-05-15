@@ -75,7 +75,7 @@ if ($fetchOk) {
         try {
             $remoteChanged = @(Get-RemoteChangedFiles $repoDir $lastSync)
             if ($remoteChanged.Count -eq 0) {
-                Write-Host "Remote : up to date"
+                Write-Host "Remote : nothing to pull"
             } else {
                 Write-Host "Remote : $($remoteChanged.Count) file(s) changed -> run .\claude-sync-pull.ps1"
                 if ($Verbose) {
@@ -99,7 +99,7 @@ if ($null -eq $lastSync -or $lastSync -eq '') {
     try {
         $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $syncDir $lastSync $exclusions)
         if ($localChanged.Count -eq 0) {
-            Write-Host "Local  : up to date"
+            Write-Host "Local  : nothing to push"
         } else {
             Write-Host "Local  : $($localChanged.Count) file(s) changed -> run .\claude-sync-push.ps1"
             if ($Verbose) {

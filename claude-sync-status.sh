@@ -85,7 +85,7 @@ if [[ "$fetch_ok" == true ]]; then
         done < <(get_remote_changed_files "$repo_dir" "$last_sync" 2>/dev/null || true)
 
         if [[ ${#remote_changed[@]} -eq 0 ]]; then
-            echo "Remote : up to date"
+            echo "Remote : nothing to pull"
         else
             echo "Remote : ${#remote_changed[@]} file(s) changed -> run ./claude-sync-pull.sh"
             if [[ "$verbose" == true ]]; then
@@ -108,7 +108,7 @@ else
     done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync" "${exclusions[@]+"${exclusions[@]}"}" 2>/dev/null || true)
 
     if [[ ${#local_changed[@]} -eq 0 ]]; then
-        echo "Local  : up to date"
+        echo "Local  : nothing to push"
     else
         echo "Local  : ${#local_changed[@]} file(s) changed -> run ./claude-sync-push.sh"
         if [[ "$verbose" == true ]]; then
