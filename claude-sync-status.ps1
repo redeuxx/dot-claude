@@ -3,10 +3,17 @@
 # Read-only: makes no changes to files or config.
 #
 # USAGE:
-#   .\claude-sync-status.ps1
+#   .\claude-sync-status.ps1 [-Verbose]
+#
+# OPTIONS:
+#   -Verbose  List each changed file instead of just the count.
 #
 # NOTE: You may need to allow script execution first:
 #   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+
+param(
+    [switch]$Verbose
+)
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
@@ -70,9 +77,9 @@ if ($fetchOk) {
             if ($remoteChanged.Count -eq 0) {
                 Write-Host "Remote : up to date"
             } else {
-                Write-Host "Remote : $($remoteChanged.Count) file(s) changed since last sync"
-                foreach ($f in $remoteChanged) {
-                    Write-Host "  [remote] $f"
+                Write-Host "Remote : $($remoteChanged.Count) file(s) changed -> run .\claude-sync-pull.ps1"
+                if ($Verbose) {
+                    foreach ($f in $remoteChanged) { Write-Host "  [remote] $f" }
                 }
             }
         } catch {
@@ -92,11 +99,11 @@ if ($null -eq $lastSync -or $lastSync -eq '') {
     try {
         $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $syncDir $lastSync $exclusions)
         if ($localChanged.Count -eq 0) {
-            Write-Host "Local  : no changes since last sync"
+            Write-Host "Local  : up to date"
         } else {
-            Write-Host "Local  : $($localChanged.Count) file(s) changed since last sync"
-            foreach ($f in $localChanged) {
-                Write-Host "  [local] $f"
+            Write-Host "Local  : $($localChanged.Count) file(s) changed -> run .\claude-sync-push.ps1"
+            if ($Verbose) {
+                foreach ($f in $localChanged) { Write-Host "  [local] $f" }
             }
         }
     } catch {
@@ -111,8 +118,8 @@ if ($localChanged.Count -gt 0 -and $remoteChanged.Count -gt 0) {
     if ($conflicts.Count -gt 0) {
         Write-Host ""
         Write-Host "CONFLICTS ($($conflicts.Count) file(s) changed in both local and remote):"
-        foreach ($f in $conflicts) {
-            Write-Host "  [CONFLICT] $f"
+        if ($Verbose) {
+            foreach ($f in $conflicts) { Write-Host "  [CONFLICT] $f" }
         }
         Write-Host ""
         Write-Host "Run claude-sync-pull.ps1 or claude-sync-push.ps1 to resolve."

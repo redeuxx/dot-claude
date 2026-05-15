@@ -3,10 +3,20 @@
 # Read-only: makes no changes to files or config.
 #
 # USAGE:
-#   bash claude-sync-status.sh
+#   bash claude-sync-status.sh [--verbose|-v]
+#
+# OPTIONS:
+#   --verbose, -v  List each changed file instead of just the count.
 
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
+
+# PARSE ARGS
+
+verbose=false
+for arg in "$@"; do
+    [[ "$arg" == --verbose || "$arg" == -v ]] && verbose=true
+done
 
 # LOAD CONFIG
 
@@ -77,10 +87,10 @@ if [[ "$fetch_ok" == true ]]; then
         if [[ ${#remote_changed[@]} -eq 0 ]]; then
             echo "Remote : up to date"
         else
-            echo "Remote : ${#remote_changed[@]} file(s) changed since last sync"
-            for f in "${remote_changed[@]}"; do
-                echo "  [remote] $f"
-            done
+            echo "Remote : ${#remote_changed[@]} file(s) changed -> run ./claude-sync-pull.sh"
+            if [[ "$verbose" == true ]]; then
+                for f in "${remote_changed[@]}"; do echo "  [remote] $f"; done
+            fi
         fi
     fi
 fi
@@ -98,12 +108,12 @@ else
     done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync" "${exclusions[@]+"${exclusions[@]}"}" 2>/dev/null || true)
 
     if [[ ${#local_changed[@]} -eq 0 ]]; then
-        echo "Local  : no changes since last sync"
+        echo "Local  : up to date"
     else
-        echo "Local  : ${#local_changed[@]} file(s) changed since last sync"
-        for f in "${local_changed[@]}"; do
-            echo "  [local] $f"
-        done
+        echo "Local  : ${#local_changed[@]} file(s) changed -> run ./claude-sync-push.sh"
+        if [[ "$verbose" == true ]]; then
+            for f in "${local_changed[@]}"; do echo "  [local] $f"; done
+        fi
     fi
 fi
 
@@ -111,7 +121,6 @@ fi
 
 if [[ ${#local_changed[@]} -gt 0 && ${#remote_changed[@]} -gt 0 ]]; then
     conflicts=()
-    local lf rf
     for lf in "${local_changed[@]}"; do
         for rf in "${remote_changed[@]}"; do
             [[ "$lf" == "$rf" ]] && { conflicts+=("$lf"); break; }
@@ -120,9 +129,9 @@ if [[ ${#local_changed[@]} -gt 0 && ${#remote_changed[@]} -gt 0 ]]; then
     if [[ ${#conflicts[@]} -gt 0 ]]; then
         echo ""
         echo "CONFLICTS (${#conflicts[@]} file(s) changed in both local and remote):"
-        for f in "${conflicts[@]}"; do
-            echo "  [CONFLICT] $f"
-        done
+        if [[ "$verbose" == true ]]; then
+            for f in "${conflicts[@]}"; do echo "  [CONFLICT] $f"; done
+        fi
         echo ""
         echo "Run claude-sync-pull.sh or claude-sync-push.sh to resolve."
     fi

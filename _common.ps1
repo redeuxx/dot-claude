@@ -184,19 +184,19 @@ function Get-LocalChangedFiles {
     try {
         Copy-ClaudeToRepo $ClaudeDir $SyncDir $Exclusions | Out-Null
 
-        $diffOutput = & git -C $RepoDir diff --name-only $CommitHash 2>&1
+        $diffOutput = & git -C $RepoDir diff --name-only $CommitHash 2>$null
         if ($LASTEXITCODE -ne 0) {
-            throw "git diff failed: $diffOutput"
+            throw "git diff failed"
         }
         # Also include untracked files (new files not yet committed)
-        $untrackedOutput = & git -C $RepoDir ls-files --others --exclude-standard 2>&1
+        $untrackedOutput = & git -C $RepoDir ls-files --others --exclude-standard 2>$null
         $changed = @(
             ($diffOutput     | Where-Object { $_ -ne '' })
             ($untrackedOutput | Where-Object { $_ -ne '' })
         )
 
         # Also detect files deleted locally (present in repo at CommitHash but not in .claude)
-        $atCommit = & git -C $RepoDir ls-tree -r --name-only $CommitHash 2>&1
+        $atCommit = & git -C $RepoDir ls-tree -r --name-only $CommitHash 2>$null
         if ($LASTEXITCODE -eq 0) {
             foreach ($repoRel in ($atCommit -split "`n" | Where-Object { $_ -ne '' })) {
                 if (Test-IsExcluded $repoRel $Exclusions) { continue }
