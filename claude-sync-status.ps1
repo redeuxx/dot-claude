@@ -35,7 +35,25 @@ $lastTime   = $config.lastSyncTime
 
 Assert-GitAvailable
 
+# FETCH REMOTE (best-effort — offline is fine, done before header so we can show machine name)
+
+$fetchOk = $false
+try {
+    Invoke-Git $repoDir @('fetch', 'origin', '--quiet') | Out-Null
+    $fetchOk = $true
+} catch {}
+
 # SUMMARY HEADER
+
+$pushedBy = $null
+if ($fetchOk) {
+    try {
+        $remoteMsg = Invoke-Git $repoDir @('log', '-1', '--format=%s', 'FETCH_HEAD')
+        if ($remoteMsg -match '\bfrom\s+(\S+)') {
+            $pushedBy = $Matches[1]
+        }
+    } catch {}
+}
 
 Write-Host ""
 Write-Host "Repo       : $($config.repoUrl)"
@@ -52,15 +70,12 @@ if ($null -ne $lastSync -and $lastSync -ne '') {
 } else {
     Write-Host "Commit     : none"
 }
+if ($null -ne $pushedBy) {
+    Write-Host "Pushed by  : $pushedBy"
+}
 Write-Host ""
 
-# FETCH REMOTE (best-effort — offline is fine)
-
-$fetchOk = $false
-try {
-    Invoke-Git $repoDir @('fetch', 'origin', '--quiet') | Out-Null
-    $fetchOk = $true
-} catch {
+if (-not $fetchOk) {
     Write-Host "[WARNING] Could not reach remote. Showing local status only."
     Write-Host ""
 }

@@ -46,7 +46,22 @@ done < <(jq -r '.exclusions[]' <<< "$config")
 assert_git_available
 assert_jq_available
 
+# FETCH REMOTE (best-effort — offline is fine, done before header so we can show machine name)
+
+fetch_ok=false
+if invoke_git "$repo_dir" fetch origin --quiet > /dev/null 2>&1; then
+    fetch_ok=true
+fi
+
 # SUMMARY HEADER
+
+pushed_by=""
+if [[ "$fetch_ok" == true ]]; then
+    remote_msg=$(git -C "$repo_dir" log -1 --format="%s" FETCH_HEAD 2>/dev/null || true)
+    if [[ "$remote_msg" =~ [[:space:]]from[[:space:]]([^[:space:]]+)$ ]]; then
+        pushed_by="${BASH_REMATCH[1]}"
+    fi
+fi
 
 echo ""
 echo "Repo       : $repo_url"
@@ -61,14 +76,10 @@ if [[ -n "$last_sync" ]]; then
 else
     echo "Commit     : none"
 fi
+[[ -n "$pushed_by" ]] && echo "Pushed by  : $pushed_by"
 echo ""
 
-# FETCH REMOTE (best-effort — offline is fine)
-
-fetch_ok=false
-if invoke_git "$repo_dir" fetch origin --quiet > /dev/null 2>&1; then
-    fetch_ok=true
-else
+if [[ "$fetch_ok" == false ]]; then
     echo "[WARNING] Could not reach remote. Showing local status only."
     echo ""
 fi
