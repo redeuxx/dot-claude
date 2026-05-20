@@ -152,8 +152,8 @@ if ($hasConflicts) {
     Write-Host "Both local and remote have changes. You must choose one direction."
     Write-Host "  [1] Pull from remote (overwrites your local changes)"
     Write-Host "  [2] Push to remote   (overwrites remote with your local changes)"
-    Write-Host "  [3] Do nothing"
-    $choice = Read-Host "Choice"
+    Write-Host "  [3] Do nothing (default)"
+    $choice = Read-Host "Choice [3]"
     switch ($choice.Trim()) {
         '1' { & "$PSScriptRoot\claude-sync-pull.ps1" }
         '2' { & "$PSScriptRoot\claude-sync-push.ps1" }
@@ -165,8 +165,8 @@ if ($hasConflicts) {
     Write-Host "  [1] Pull from remote first, then push local changes"
     Write-Host "  [2] Pull only"
     Write-Host "  [3] Push only"
-    Write-Host "  [4] Do nothing"
-    $choice = Read-Host "Choice"
+    Write-Host "  [4] Do nothing (default)"
+    $choice = Read-Host "Choice [4]"
     switch ($choice.Trim()) {
         '1' {
             & "$PSScriptRoot\claude-sync-pull.ps1"
