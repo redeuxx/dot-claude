@@ -128,16 +128,16 @@ if ($null -eq $lastSync -or $lastSync -eq '') {
 
 # CONFLICT SUMMARY
 
+$hasConflicts = $false
 if ($localChanged.Count -gt 0 -and $remoteChanged.Count -gt 0) {
     $conflicts = $localChanged | Where-Object { $remoteChanged -contains $_ }
     if ($conflicts.Count -gt 0) {
+        $hasConflicts = $true
         Write-Host ""
         Write-Host "CONFLICTS ($($conflicts.Count) file(s) changed in both local and remote):"
         if ($Verbose) {
             foreach ($f in $conflicts) { Write-Host "  [CONFLICT] $f" }
         }
-        Write-Host ""
-        Write-Host "Run claude-sync-pull.ps1 or claude-sync-push.ps1 to resolve."
     }
 }
 
@@ -145,3 +145,45 @@ if (-not $Verbose) {
     Write-Host "Tip: run with -Verbose to list changed files."
 }
 Write-Host ""
+
+# ACTION PROMPTS
+
+if ($hasConflicts) {
+    Write-Host "Both local and remote have changes. You must choose one direction."
+    Write-Host "  [1] Pull from remote (overwrites your local changes)"
+    Write-Host "  [2] Push to remote   (overwrites remote with your local changes)"
+    Write-Host "  [3] Do nothing"
+    $choice = Read-Host "Choice"
+    switch ($choice.Trim()) {
+        '1' { & "$PSScriptRoot\claude-sync-pull.ps1" }
+        '2' { & "$PSScriptRoot\claude-sync-push.ps1" }
+        default { Write-Host "No action taken." }
+    }
+} elseif ($remoteChanged.Count -gt 0 -and $localChanged.Count -gt 0) {
+    # Non-conflicting changes on both sides - pull first is the safe order
+    Write-Host "Remote and local both have changes (no file conflicts)."
+    Write-Host "  [1] Pull from remote first, then push local changes"
+    Write-Host "  [2] Pull only"
+    Write-Host "  [3] Push only"
+    Write-Host "  [4] Do nothing"
+    $choice = Read-Host "Choice"
+    switch ($choice.Trim()) {
+        '1' {
+            & "$PSScriptRoot\claude-sync-pull.ps1"
+            & "$PSScriptRoot\claude-sync-push.ps1"
+        }
+        '2' { & "$PSScriptRoot\claude-sync-pull.ps1" }
+        '3' { & "$PSScriptRoot\claude-sync-push.ps1" }
+        default { Write-Host "No action taken." }
+    }
+} elseif ($remoteChanged.Count -gt 0) {
+    $answer = Read-Host "Pull $($remoteChanged.Count) remote change(s) now? [y/N]"
+    if ($answer.Trim() -match '^[Yy]') {
+        & "$PSScriptRoot\claude-sync-pull.ps1"
+    }
+} elseif ($localChanged.Count -gt 0) {
+    $answer = Read-Host "Push $($localChanged.Count) local change(s) now? [y/N]"
+    if ($answer.Trim() -match '^[Yy]') {
+        & "$PSScriptRoot\claude-sync-push.ps1"
+    }
+}
