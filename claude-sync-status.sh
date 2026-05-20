@@ -130,6 +130,7 @@ fi
 
 # CONFLICT SUMMARY
 
+has_conflicts=false
 if [[ ${#local_changed[@]} -gt 0 && ${#remote_changed[@]} -gt 0 ]]; then
     conflicts=()
     for lf in "${local_changed[@]}"; do
@@ -138,13 +139,12 @@ if [[ ${#local_changed[@]} -gt 0 && ${#remote_changed[@]} -gt 0 ]]; then
         done
     done
     if [[ ${#conflicts[@]} -gt 0 ]]; then
+        has_conflicts=true
         echo ""
         echo "CONFLICTS (${#conflicts[@]} file(s) changed in both local and remote):"
         if [[ "$verbose" == true ]]; then
             for f in "${conflicts[@]}"; do echo "  [CONFLICT] $f"; done
         fi
-        echo ""
-        echo "Run claude-sync-pull.sh or claude-sync-push.sh to resolve."
     fi
 fi
 
@@ -152,3 +152,39 @@ if [[ "$verbose" == false ]]; then
     echo "Tip: run with --verbose to list changed files."
 fi
 echo ""
+
+# ACTION PROMPTS
+
+script_dir="$(dirname "$0")"
+
+if [[ "$has_conflicts" == true ]]; then
+    echo "Both local and remote have changes. You must choose one direction."
+    echo "  [1] Pull from remote (overwrites your local changes)"
+    echo "  [2] Push to remote   (overwrites remote with your local changes)"
+    echo "  [3] Do nothing (default)"
+    read -r -p "Choice [3]: " choice
+    case "${choice:-3}" in
+        1) bash "$script_dir/claude-sync-pull.sh" ;;
+        2) bash "$script_dir/claude-sync-push.sh" ;;
+        *) echo "No action taken." ;;
+    esac
+elif [[ ${#remote_changed[@]} -gt 0 && ${#local_changed[@]} -gt 0 ]]; then
+    echo "Remote and local both have changes (no file conflicts)."
+    echo "  [1] Pull from remote first, then push local changes"
+    echo "  [2] Pull only"
+    echo "  [3] Push only"
+    echo "  [4] Do nothing (default)"
+    read -r -p "Choice [4]: " choice
+    case "${choice:-4}" in
+        1) bash "$script_dir/claude-sync-pull.sh" && bash "$script_dir/claude-sync-push.sh" ;;
+        2) bash "$script_dir/claude-sync-pull.sh" ;;
+        3) bash "$script_dir/claude-sync-push.sh" ;;
+        *) echo "No action taken." ;;
+    esac
+elif [[ ${#remote_changed[@]} -gt 0 ]]; then
+    read -r -p "Pull ${#remote_changed[@]} remote change(s) now? [y/N]: " answer
+    [[ "${answer:-N}" =~ ^[Yy] ]] && bash "$script_dir/claude-sync-pull.sh"
+elif [[ ${#local_changed[@]} -gt 0 ]]; then
+    read -r -p "Push ${#local_changed[@]} local change(s) now? [y/N]: " answer
+    [[ "${answer:-N}" =~ ^[Yy] ]] && bash "$script_dir/claude-sync-push.sh"
+fi
