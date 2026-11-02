@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sync-push.sh — Copy local ~/.claude to repo, commit, and push to GitHub.
+# claude-sync-push.sh - Copy local ~/.claude to repo, commit, and push to GitHub.
 #
 # USAGE:
 #   bash claude-sync-push.sh
@@ -85,7 +85,7 @@ fi
 
 status=$(invoke_git "$repo_dir" status --porcelain)
 if [[ -z "$status" ]]; then
-    echo "Nothing to commit — local .claude already matches the repo."
+    echo "Nothing to commit - local .claude already matches the repo."
     exit 0
 fi
 

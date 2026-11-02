@@ -1,5 +1,5 @@
 # Requires -Version 5.1
-# _common.ps1 — Shared functions for claude-sync scripts.
+# _common.ps1 - Shared functions for claude-sync scripts.
 # Dot-source this file at the top of each script:
 #   . "$PSScriptRoot\_common.ps1"
 
@@ -51,7 +51,7 @@ function Test-IsExcluded {
     $segments = $RelPath -split '/'
     foreach ($pattern in $Exclusions) {
         if ($pattern -like '*/*') {
-            # Pattern contains a slash — match against full path
+            # Pattern contains a slash - match against full path
             if ($RelPath -like $pattern) { return $true }
         } else {
             # Match against each path segment individually

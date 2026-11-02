@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sync-status.sh — Show what differs between local ~/.claude and the remote repo.
+# claude-sync-status.sh - Show what differs between local ~/.claude and the remote repo.
 # Read-only: makes no changes to files or config.
 #
 # USAGE:
@@ -46,7 +46,7 @@ done < <(jq -r '.exclusions[]' <<< "$config")
 assert_git_available
 assert_jq_available
 
-# FETCH REMOTE (best-effort — offline is fine, done before header so we can show machine name)
+# FETCH REMOTE (best-effort - offline is fine, done before header so we can show machine name)
 
 fetch_ok=false
 if invoke_git "$repo_dir" fetch origin --quiet > /dev/null 2>&1; then
@@ -89,7 +89,7 @@ fi
 remote_changed=()
 if [[ "$fetch_ok" == true ]]; then
     if [[ -z "$last_sync" ]]; then
-        echo "Remote : no baseline sync yet — cannot compare"
+        echo "Remote : no baseline sync yet - cannot compare"
     else
         while IFS= read -r line; do
             [[ -n "$line" ]] && remote_changed+=("$line")
@@ -110,7 +110,7 @@ fi
 
 local_changed=()
 if [[ -z "$last_sync" ]]; then
-    echo "Local  : no baseline sync yet — cannot compare"
+    echo "Local  : no baseline sync yet - cannot compare"
 elif [[ ! -d "$claude_dir" ]]; then
     echo "Local  : .claude directory not found at $claude_dir"
 else

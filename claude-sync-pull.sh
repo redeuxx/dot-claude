@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sync-pull.sh — Fetch remote repo and sync contents into local ~/.claude.
+# claude-sync-pull.sh - Fetch remote repo and sync contents into local ~/.claude.
 #
 # USAGE:
 #   bash claude-sync-pull.sh [--force]
@@ -110,7 +110,7 @@ fi
 # MERGE REPO TO REMOTE HEAD
 
 if ! invoke_git "$repo_dir" merge --ff-only FETCH_HEAD > /dev/null 2>&1; then
-    # Fast-forward failed (diverged history) — reset hard since user chose remote.
+    # Fast-forward failed (diverged history) - reset hard since user chose remote.
     echo "Fast-forward merge not possible; resetting to remote HEAD..."
     invoke_git "$repo_dir" reset --hard FETCH_HEAD > /dev/null
 fi

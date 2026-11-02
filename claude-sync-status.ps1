@@ -1,5 +1,5 @@
 # Requires -Version 5.1
-# claude-sync-status.ps1 — Show what differs between local ~/.claude and the remote repo.
+# claude-sync-status.ps1 - Show what differs between local ~/.claude and the remote repo.
 # Read-only: makes no changes to files or config.
 #
 # USAGE:
@@ -35,7 +35,7 @@ $lastTime   = $config.lastSyncTime
 
 Assert-GitAvailable
 
-# FETCH REMOTE (best-effort — offline is fine, done before header so we can show machine name)
+# FETCH REMOTE (best-effort - offline is fine, done before header so we can show machine name)
 
 $fetchOk = $false
 try {
@@ -85,7 +85,7 @@ if (-not $fetchOk) {
 $remoteChanged = @()
 if ($fetchOk) {
     if ($null -eq $lastSync -or $lastSync -eq '') {
-        Write-Host "Remote : no baseline sync yet — cannot compare"
+        Write-Host "Remote : no baseline sync yet - cannot compare"
     } else {
         try {
             $remoteChanged = @(Get-RemoteChangedFiles $repoDir $lastSync)
@@ -107,7 +107,7 @@ if ($fetchOk) {
 
 $localChanged = @()
 if ($null -eq $lastSync -or $lastSync -eq '') {
-    Write-Host "Local  : no baseline sync yet — cannot compare"
+    Write-Host "Local  : no baseline sync yet - cannot compare"
 } elseif (-not (Test-Path $claudeDir)) {
     Write-Host "Local  : .claude directory not found at $claudeDir"
 } else {

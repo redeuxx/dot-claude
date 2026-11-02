@@ -1,5 +1,5 @@
 # Requires -Version 5.1
-# claude-sync-push.ps1 — Copy local ~/.claude to repo, commit, and push to GitHub.
+# claude-sync-push.ps1 - Copy local ~/.claude to repo, commit, and push to GitHub.
 #
 # USAGE:
 #   .\claude-sync-push.ps1
@@ -70,7 +70,7 @@ if ($copied.Count -gt 0 -or $deleted.Count -gt 0) {
 
 $status = Invoke-Git $repoDir @('status', '--porcelain')
 if ($status -eq '') {
-    Write-Host "Nothing to commit — local .claude already matches the repo."
+    Write-Host "Nothing to commit - local .claude already matches the repo."
     exit 0
 }
 

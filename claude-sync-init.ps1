@@ -1,5 +1,5 @@
 # Requires -Version 5.1
-# claude-sync-init.ps1 — First-run setup: prompt for repo URL, clone, write config.
+# claude-sync-init.ps1 - First-run setup: prompt for repo URL, clone, write config.
 #
 # USAGE:
 #   .\claude-sync-init.ps1
@@ -96,7 +96,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # INITIAL COMMIT HASH
-# Always null — init clones but does not copy files to .claude, so there is
+# Always null - init clones but does not copy files to .claude, so there is
 # no sync baseline yet. Pull will detect null and do a real first-time sync.
 
 $initialCommit = $null

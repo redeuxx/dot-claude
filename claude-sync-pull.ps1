@@ -1,5 +1,5 @@
 # Requires -Version 5.1
-# claude-sync-pull.ps1 — Fetch remote repo and sync contents into local ~/.claude.
+# claude-sync-pull.ps1 - Fetch remote repo and sync contents into local ~/.claude.
 #
 # USAGE:
 #   .\claude-sync-pull.ps1 [-Force]
@@ -87,7 +87,7 @@ if ($null -ne $lastSync -and (Test-Path $claudeDir)) {
 
 if (Test-Path $claudeDir) {
     if ($null -eq $lastSync) {
-        # First sync: .claude exists but we have no baseline — be extra careful
+        # First sync: .claude exists but we have no baseline - be extra careful
         Write-Host ""
         Write-Host "WARNING: $claudeDir already exists and no previous sync baseline was found."
         if (-not (Confirm-Prompt "Overwrite files in $claudeDir with repo contents?")) {
@@ -104,7 +104,7 @@ if (Test-Path $claudeDir) {
 try {
     Invoke-Git $repoDir @('merge', '--ff-only', 'FETCH_HEAD') | Out-Null
 } catch {
-    # Fast-forward failed (diverged history) — reset hard since user chose remote
+    # Fast-forward failed (diverged history) - reset hard since user chose remote
     Write-Host "Fast-forward merge not possible; resetting to remote HEAD..."
     Invoke-Git $repoDir @('reset', '--hard', 'FETCH_HEAD') | Out-Null
 }

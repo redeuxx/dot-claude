@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# _common.sh — Shared functions for claude-sync scripts.
+# _common.sh - Shared functions for claude-sync scripts.
 # Source this file at the top of each script:
 #   source "$(dirname "$0")/_common.sh"
 
@@ -46,7 +46,7 @@ is_excluded() {
     local pattern seg
     for pattern in "$@"; do
         if [[ "$pattern" == */* ]]; then
-            # Pattern contains slash — match against full path.
+            # Pattern contains slash - match against full path.
             # shellcheck disable=SC2254
             case "$rel_path" in
                 $pattern) return 0 ;;
@@ -219,10 +219,10 @@ get_remote_changed_files() {
 }
 
 # Sets globals (all prefixed _CS_):
-#   _CS_HAS_CONFLICT   — "true" or "false"
-#   _CS_LOCAL_CHANGED  — array of locally changed file paths
-#   _CS_REMOTE_CHANGED — array of remotely changed file paths
-#   _CS_CONFLICT_FILES — array of files changed in both
+#   _CS_HAS_CONFLICT   - "true" or "false"
+#   _CS_LOCAL_CHANGED  - array of locally changed file paths
+#   _CS_REMOTE_CHANGED - array of remotely changed file paths
+#   _CS_CONFLICT_FILES - array of files changed in both
 test_conflict_exists() {
     local claude_dir="$1"
     local repo_dir="$2"
@@ -334,7 +334,7 @@ _linux_pkg_hint() {
         *arch*)
             echo "    Arch             : sudo pacman -S $pacman_pkg" >&2 ;;
         *)
-            # Unknown or no /etc/os-release — show all three.
+            # Unknown or no /etc/os-release - show all three.
             echo "    Debian/Ubuntu    : sudo apt install $apt_pkg" >&2
             echo "    Fedora/RHEL      : sudo dnf install $dnf_pkg" >&2
             echo "    Arch             : sudo pacman -S $pacman_pkg" >&2
