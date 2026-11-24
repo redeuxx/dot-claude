@@ -521,3 +521,52 @@ select_conflict_winner() {
         printf 'Please enter L, R or D.\n' >/dev/tty
     done
 }
+
+# SCRIPT UPDATE CHECK
+
+# Tells the user (on stderr) when the scripts' own git checkout is behind its
+# upstream. Notify only, never auto-update. Silent when git is missing, the
+# scripts are not a git checkout, there is no upstream, or the fetch fails or
+# takes over 5 seconds (offline, dropped packets), so it can never block a sync.
+show_script_update_notice() {
+    local script_dir="$1" ssh_cmd pid i counts ahead behind
+    command -v git &>/dev/null || return 0
+    # Only check a checkout that actually tracks these scripts
+    git -C "$script_dir" ls-files --error-unmatch _common.sh &>/dev/null || return 0
+    # Never prompt for credentials, passphrases or host keys just for an update check
+    ssh_cmd="${GIT_SSH_COMMAND:-}"
+    if [[ -z "$ssh_cmd" ]] && ! git -C "$script_dir" config core.sshCommand &>/dev/null; then
+        ssh_cmd='ssh -o BatchMode=yes -o ConnectTimeout=5'
+    fi
+    (
+        export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never
+        if [[ -n "$ssh_cmd" ]]; then export GIT_SSH_COMMAND="$ssh_cmd"; fi
+        exec git -C "$script_dir" fetch --quiet
+    ) </dev/null &>/dev/null &
+    pid=$!
+    # Hard 5 second cap, since git has no connect timeout of its own (and
+    # macOS has no timeout(1)).
+    # ponytail: kills git only; a stuck child helper exits on its own timeout
+    for ((i = 0; i < 50; i++)); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.1
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+        return 0
+    fi
+    wait "$pid" 2>/dev/null || return 0
+    counts=$(git -C "$script_dir" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null) || return 0
+    read -r ahead behind <<< "$counts" || return 0
+    [[ "$ahead" =~ ^[0-9]+$ && "$behind" =~ ^[0-9]+$ ]] || return 0
+    (( behind > 0 )) || return 0
+    if (( ahead > 0 )); then
+        printf 'Script updates available: %s new commit(s) upstream, but your checkout also has %s local commit(s).\n  Merge or rebase in "%s" to update.\n\n' \
+            "$behind" "$ahead" "$script_dir" >&2
+    else
+        printf 'Script updates available: %s new commit(s) upstream. To update, run:\n  git -C "%s" pull --ff-only\n\n' \
+            "$behind" "$script_dir" >&2
+    fi
+    return 0
+}

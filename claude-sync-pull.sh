@@ -9,6 +9,7 @@
 
 set -euo pipefail
 source "$(dirname "$0")/_common.sh"
+show_script_update_notice "$(dirname "$0")"
 
 # PARSE ARGS
 
