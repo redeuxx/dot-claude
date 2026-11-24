@@ -8,8 +8,8 @@ Sync your `~/.claude` directory across multiple machines via a private GitHub re
 |---|---|---|---|
 | Git | [git-scm.com](https://git-scm.com/) | `sudo apt install git` | `brew install git` |
 | GitHub CLI | [cli.github.com](https://cli.github.com/) | [install guide](https://github.com/cli/cli/blob/trunk/docs/install_linux.md) | `brew install gh` |
-| jq *(Bash only)* | — | `sudo apt install jq` | `brew install jq` |
-| PowerShell 5.1+ *(Windows only)* | built-in | — | — |
+| jq *(Bash only)* | n/a | `sudo apt install jq` | `brew install jq` |
+| PowerShell 5.1+ *(Windows only)* | built-in | n/a | n/a |
 
 After installing GitHub CLI, authenticate once:
 
@@ -41,8 +41,8 @@ bash claude-sync-init.sh
 
 You will be prompted for:
 
-- **Repo URL** — your private GitHub repo (e.g. `https://github.com/you/claude-settings.git`)
-- **Subdirectory** — an optional path within the repo to sync into (e.g. `claude`). Leave blank to use the repo root.
+- **Repo URL**: your private GitHub repo (e.g. `https://github.com/you/claude-settings.git`)
+- **Subdirectory**: an optional path within the repo to sync into (e.g. `claude`). Leave blank to use the repo root.
 
 The script clones the repo to `~/.claude-sync/repo/` and writes a local config to `~/.claude-sync/config.json`.
 
@@ -102,11 +102,11 @@ By default only counts are shown. Pass `-Verbose` / `--verbose` to list each cha
 
 ```
 ~/.claude-sync/
-  config.json   # local config — never synced to GitHub
+  config.json   # local config, never synced to GitHub
   repo/         # git clone of your settings repo (staging area)
 ```
 
-The config is always local to each machine and is never uploaded. The `repo/` directory is purely a staging area — your settings live in `~/.claude`.
+The config is always local to each machine and is never uploaded. The `repo/` directory is purely a staging area; your settings live in `~/.claude`.
 
 ## Default Exclusions
 
