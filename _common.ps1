@@ -241,17 +241,21 @@ function Get-LocalChangedFiles {
     # Prefix to strip when mapping repo-relative paths back to .claude-relative paths
     $subdirPrefix = Get-SubdirPrefix $RepoDir $SyncDir
 
+    # Runs git keeping stdout only. Windows PowerShell 5.1 would otherwise turn
+    # harmless stderr (CRLF warnings, "Updated N paths") into terminating errors.
+    $git = { $ErrorActionPreference = 'Continue'; & git @args 2>$null }
+
     # Copy .claude into the repo working tree, ask git what changed vs CommitHash,
     # then restore the working tree. This lets git handle binary files correctly.
     try {
         Copy-ClaudeToRepo $ClaudeDir $SyncDir $Filter | Out-Null
 
-        $diffOutput = & git -C $RepoDir diff --name-only $CommitHash 2>$null
+        $diffOutput = & $git -C $RepoDir diff --name-only $CommitHash
         if ($LASTEXITCODE -ne 0) {
             throw "git diff failed"
         }
         # Also include untracked files (new files not yet committed)
-        $untrackedOutput = & git -C $RepoDir ls-files --others --exclude-standard 2>$null
+        $untrackedOutput = & $git -C $RepoDir ls-files --others --exclude-standard
         $changed = @(
             @($diffOutput) + @($untrackedOutput) | Where-Object {
                 if (-not $_) { return $false }
@@ -261,7 +265,7 @@ function Get-LocalChangedFiles {
         )
 
         # Also detect files deleted locally (present in repo at CommitHash but not in .claude)
-        $atCommit = & git -C $RepoDir ls-tree -r --name-only $CommitHash 2>$null
+        $atCommit = & $git -C $RepoDir ls-tree -r --name-only $CommitHash
         if ($LASTEXITCODE -eq 0) {
             foreach ($repoRel in ($atCommit -split "`n" | Where-Object { $_ -ne '' })) {
                 $claudeRel = ConvertTo-ClaudeRelPath $repoRel $subdirPrefix
@@ -278,8 +282,8 @@ function Get-LocalChangedFiles {
     } finally {
         # Always restore the repo working tree, including removing the untracked
         # copies, so a later push's `git add -A` cannot pick them up
-        & git -C $RepoDir checkout -- . 2>&1 | Out-Null
-        & git -C $RepoDir clean -fdq -e /.gitattributes -- $SyncDir 2>&1 | Out-Null
+        & $git -C $RepoDir checkout -- . | Out-Null
+        & $git -C $RepoDir clean -fdq -e /.gitattributes -- $SyncDir | Out-Null
     }
 }
 
@@ -335,7 +339,11 @@ function Invoke-Git {
         [Parameter(Mandatory)][string]$RepoDir,
         [Parameter(Mandatory)][string[]]$Arguments
     )
-    $output = & git -C $RepoDir @Arguments 2>&1
+    # Windows PowerShell 5.1 turns any native stderr (fetch progress, CRLF
+    # warnings) into a terminating error under Stop. git reports failure
+    # through its exit code, so judge by that and keep stderr as plain text.
+    $ErrorActionPreference = 'Continue'
+    $output = & git -C $RepoDir @Arguments 2>&1 | ForEach-Object { "$_" }
     if ($LASTEXITCODE -ne 0) {
         throw "git $($Arguments -join ' ') failed:`n$output"
     }
