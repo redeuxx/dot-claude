@@ -276,8 +276,10 @@ function Get-LocalChangedFiles {
         }
         return $changed
     } finally {
-        # Always restore the repo working tree
+        # Always restore the repo working tree, including removing the untracked
+        # copies, so a later push's `git add -A` cannot pick them up
         & git -C $RepoDir checkout -- . 2>&1 | Out-Null
+        & git -C $RepoDir clean -fdq -e .gitattributes -- $SyncDir 2>&1 | Out-Null
     }
 }
 
