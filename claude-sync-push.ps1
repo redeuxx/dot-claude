@@ -46,10 +46,14 @@ try {
         Write-Host "WARNING: Remote has new commits since your last sync."
         Write-Host "Run claude-sync-pull.ps1 first to avoid overwriting remote changes."
         Write-Host ""
-        if (-not (Confirm-Prompt "Push anyway?")) {
+        if (-not (Confirm-Prompt "Push anyway? (your local files replace the remote versions)")) {
             Write-Host "Aborted."
             exit 0
         }
+        # Build the commit on top of the remote tip so the push fast-forwards:
+        # local .claude wins for synced files and remote history is kept (no
+        # force push). The repo is only a mirror of .claude, so nothing is lost.
+        Invoke-Git $repoDir @('reset', '--hard', 'FETCH_HEAD') | Out-Null
     }
 } catch {
     Write-Host "Could not reach remote. Proceeding with local commit only (no push)."

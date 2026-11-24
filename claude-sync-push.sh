@@ -50,10 +50,14 @@ if invoke_git "$repo_dir" fetch origin > /dev/null 2>&1; then
             echo "WARNING: Remote has new commits since your last sync."
             echo "Run claude-sync-pull.sh first to avoid overwriting remote changes."
             echo ""
-            if ! confirm_prompt "Push anyway?"; then
+            if ! confirm_prompt "Push anyway? (your local files replace the remote versions)"; then
                 echo "Aborted."
                 exit 0
             fi
+            # Build the commit on top of the remote tip so the push fast-forwards:
+            # local .claude wins for synced files and remote history is kept (no
+            # force push). The repo is only a mirror of .claude, so nothing is lost.
+            invoke_git "$repo_dir" reset --hard FETCH_HEAD > /dev/null
         fi
     fi
 else
