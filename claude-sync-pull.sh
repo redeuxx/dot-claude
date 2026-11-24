@@ -35,10 +35,7 @@ else
     sync_dir="$repo_dir"
 fi
 
-exclusions=()
-while IFS= read -r line; do
-    [[ -n "$line" ]] && exclusions+=("$line")
-done < <(jq -r '.exclusions[]' <<< "$config")
+load_sync_filter "$config"
 
 assert_git_available
 assert_jq_available
@@ -67,7 +64,7 @@ winner="remote"
 
 if [[ -n "$last_sync" && -d "$claude_dir" ]]; then
     echo "Checking for conflicts..."
-    test_conflict_exists "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync" "${exclusions[@]+"${exclusions[@]}"}"
+    test_conflict_exists "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync"
 
     if [[ "$_CS_HAS_CONFLICT" == true ]]; then
         winner=$(select_conflict_winner "${_CS_CONFLICT_FILES[@]+"${_CS_CONFLICT_FILES[@]}"}")
@@ -120,12 +117,12 @@ fi
 copied=()
 while IFS= read -r line; do
     [[ -n "$line" ]] && copied+=("$line")
-done < <(copy_repo_to_claude "$sync_dir" "$claude_dir" "${exclusions[@]+"${exclusions[@]}"}")
+done < <(copy_repo_to_claude "$sync_dir" "$claude_dir")
 
 deleted=()
 while IFS= read -r line; do
     [[ -n "$line" ]] && deleted+=("$line")
-done < <(remove_stale_claude_files "$claude_dir" "$sync_dir" "${exclusions[@]+"${exclusions[@]}"}")
+done < <(remove_stale_claude_files "$claude_dir" "$sync_dir")
 
 echo "Pulled   : ${#copied[@]} file(s) to $claude_dir."
 if [[ ${#deleted[@]} -gt 0 ]]; then

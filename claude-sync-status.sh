@@ -38,10 +38,7 @@ else
     sync_dir="$repo_dir"
 fi
 
-exclusions=()
-while IFS= read -r line; do
-    [[ -n "$line" ]] && exclusions+=("$line")
-done < <(jq -r '.exclusions[]' <<< "$config")
+load_sync_filter "$config"
 
 assert_git_available
 assert_jq_available
@@ -93,7 +90,7 @@ if [[ "$fetch_ok" == true ]]; then
     else
         while IFS= read -r line; do
             [[ -n "$line" ]] && remote_changed+=("$line")
-        done < <(get_remote_changed_files "$repo_dir" "$last_sync" 2>/dev/null || true)
+        done < <(get_remote_changed_files "$repo_dir" "$sync_dir" "$last_sync" 2>/dev/null || true)
 
         if [[ ${#remote_changed[@]} -eq 0 ]]; then
             echo "Remote : nothing to pull"
@@ -116,7 +113,7 @@ elif [[ ! -d "$claude_dir" ]]; then
 else
     while IFS= read -r line; do
         [[ -n "$line" ]] && local_changed+=("$line")
-    done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync" "${exclusions[@]+"${exclusions[@]}"}" 2>/dev/null || true)
+    done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync" 2>/dev/null || true)
 
     if [[ ${#local_changed[@]} -eq 0 ]]; then
         echo "Local  : nothing to push"

@@ -125,28 +125,9 @@ $config = [PSCustomObject]@{
     claudeDir      = $claudeDir
     lastSyncCommit = $initialCommit
     lastSyncTime   = $null
-    exclusions     = @(
-        '*.log'
-        '.credentials.json'
-        'cache'
-        '.tmp'
-        'ide'
-        'backups'
-        'debug'
-        'downloads'
-        'file-history'
-        'mcp-needs-auth-cache.json'
-        'plans'
-        'policy-limits.json'
-        'projects'
-        'sessions'
-        'shell-snapshots'
-        'statsig'
-        'telemetry'
-        'settings.local.json'
-        'todos'
-        'plugins'
-    )
+    # Only paths matching an include (and no exclusion) are synced
+    includes       = @($script:DefaultIncludes)
+    exclusions     = @('*.log')
 }
 Save-SyncConfig $config
 

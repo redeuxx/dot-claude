@@ -115,6 +115,7 @@ config=$(jq -n \
     --arg repoSubdir "$repo_subdir" \
     --arg repoDir    "$repo_dir" \
     --arg claudeDir  "$claude_dir" \
+    --args \
     '{
         repoUrl:        $repoUrl,
         repoSubdir:     $repoSubdir,
@@ -122,29 +123,9 @@ config=$(jq -n \
         claudeDir:      $claudeDir,
         lastSyncCommit: null,
         lastSyncTime:   null,
-        exclusions: [
-            "*.log",
-            ".credentials.json",
-            "cache",
-            ".tmp",
-            "ide",
-            "backups",
-            "debug",
-            "downloads",
-            "file-history",
-            "mcp-needs-auth-cache.json",
-            "plans",
-            "policy-limits.json",
-            "projects",
-            "sessions",
-            "shell-snapshots",
-            "statsig",
-            "telemetry",
-            "settings.local.json",
-            "todos",
-            "plugins"
-        ]
-    }')
+        includes:       $ARGS.positional,
+        exclusions:     ["*.log"]
+    }' "${DEFAULT_INCLUDES[@]}")
 
 save_sync_config "$config"
 

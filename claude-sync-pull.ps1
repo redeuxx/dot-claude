@@ -28,7 +28,7 @@ if ($null -eq $config) {
 $claudeDir  = $config.claudeDir
 $repoDir    = $config.repoDir
 $syncDir    = if ($config.repoSubdir) { Join-Path $repoDir $config.repoSubdir.Replace('/', '\') } else { $repoDir }
-$exclusions = @($config.exclusions)
+$filter     = Get-SyncFilter $config
 $lastSync   = $config.lastSyncCommit
 
 Assert-GitAvailable
@@ -59,7 +59,7 @@ $winner = 'remote'  # default: remote wins unless user overrides
 
 if ($null -ne $lastSync -and (Test-Path $claudeDir)) {
     Write-Host "Checking for conflicts..."
-    $conflictInfo = Test-ConflictExists $claudeDir $repoDir $syncDir $lastSync $exclusions
+    $conflictInfo = Test-ConflictExists $claudeDir $repoDir $syncDir $lastSync $filter
 
     if ($conflictInfo.HasConflict) {
         $winner = Select-ConflictWinner $conflictInfo.ConflictFiles
@@ -111,8 +111,8 @@ try {
 
 # COPY REPO -> .CLAUDE
 
-$copied  = Copy-RepoToClaude       $syncDir $claudeDir $exclusions
-$deleted = Remove-StaleClaudeFiles $claudeDir $syncDir $exclusions
+$copied  = Copy-RepoToClaude       $syncDir $claudeDir $filter
+$deleted = Remove-StaleClaudeFiles $claudeDir $syncDir $filter
 
 Write-Host "Pulled   : $($copied.Count) file(s) to $claudeDir."
 if ($deleted.Count -gt 0) {

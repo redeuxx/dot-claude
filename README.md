@@ -64,7 +64,7 @@ Re-running init on a machine that is already configured will prompt before overw
 bash claude-sync-pull.sh [--force]
 ```
 
-Fetches the latest commits and copies repo contents into `~/.claude`. Files in `~/.claude` that no longer exist in the repo are removed, making pull a true mirror. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
+Fetches the latest commits and copies the synced files into `~/.claude`. Files in `~/.claude` that no longer exist in the repo are removed, making pull a true mirror. If both local and remote have changed the same file since the last sync, you will be asked which version wins.
 
 Use `-Force` / `--force` to re-copy all files even when the remote commit matches the last sync (useful if files are missing from `~/.claude` without any new commits).
 
@@ -80,7 +80,7 @@ Use `-Force` / `--force` to re-copy all files even when the remote commit matche
 bash claude-sync-push.sh
 ```
 
-Copies `~/.claude` into the local repo clone, removes any repo files that no longer exist locally, commits with a timestamp and machine name, and pushes to GitHub. If the remote is ahead of your last sync, you will be warned before proceeding.
+Copies the synced files from `~/.claude` into the local repo clone, removes any repo files that no longer exist locally, commits with a timestamp and machine name, and pushes to GitHub. If the remote is ahead of your last sync, you will be warned before proceeding.
 
 ### Check what has changed
 
@@ -108,17 +108,24 @@ By default only counts are shown. Pass `-Verbose` / `--verbose` to list each cha
 
 The config is always local to each machine and is never uploaded. The `repo/` directory is purely a staging area; your settings live in `~/.claude`.
 
-## Default Exclusions
+## What Gets Synced
 
-The following are excluded from syncing by default (local/ephemeral data):
+Only an allowlist of paths is synced. Everything else in `~/.claude` (plugins, sessions, `settings.json`, `.claude.json`, caches and other machine-specific state) is never pushed, pulled or deleted. Defaults:
 
 ```
-*.log  .credentials.json  cache  .tmp  ide  backups  debug  downloads
-file-history  mcp-needs-auth-cache.json  plans  policy-limits.json
-projects  sessions  shell-snapshots  statsig  telemetry  settings.local.json  todos  plugins
+CLAUDE.md
+skills/*
+statusline.ps1
 ```
 
-To customize, edit the `exclusions` array in `~/.claude-sync/config.json`.
+`skills/synced/` (skills synced from your claude.ai account) and `skills/.trash/` are always excluded, since Claude Code manages them on each machine.
+
+To customize, edit `~/.claude-sync/config.json`:
+
+- `includes`: glob patterns matched against the full path relative to `~/.claude` (`*` spans directories, e.g. `skills/*`). If the key is missing, the defaults above apply.
+- `exclusions`: patterns removed from the included set. A pattern with a `/` matches the full path; one without matches any single path segment (e.g. `*.log`).
+
+Files in the repo that fall outside the allowlist (e.g. left over from older versions of these scripts) are ignored, not deleted.
 
 ## Conflict Resolution
 

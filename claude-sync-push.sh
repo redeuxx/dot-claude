@@ -25,10 +25,7 @@ else
     sync_dir="$repo_dir"
 fi
 
-exclusions=()
-while IFS= read -r line; do
-    [[ -n "$line" ]] && exclusions+=("$line")
-done < <(jq -r '.exclusions[]' <<< "$config")
+load_sync_filter "$config"
 
 assert_git_available
 assert_jq_available
@@ -69,12 +66,12 @@ echo "Copying $claude_dir to repo..."
 copied=()
 while IFS= read -r line; do
     [[ -n "$line" ]] && copied+=("$line")
-done < <(copy_claude_to_repo "$claude_dir" "$sync_dir" "${exclusions[@]+"${exclusions[@]}"}")
+done < <(copy_claude_to_repo "$claude_dir" "$sync_dir")
 
 deleted=()
 while IFS= read -r line; do
     [[ -n "$line" ]] && deleted+=("$line")
-done < <(remove_stale_repo_files "$sync_dir" "$claude_dir" "${exclusions[@]+"${exclusions[@]}"}")
+done < <(remove_stale_repo_files "$sync_dir" "$claude_dir")
 
 if [[ ${#copied[@]} -gt 0 || ${#deleted[@]} -gt 0 ]]; then
     echo "  Staged   : ${#copied[@]} file(s)"

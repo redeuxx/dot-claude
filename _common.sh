@@ -37,7 +37,91 @@ get_repo_dir() {
     echo "$HOME/.claude-sync/repo"
 }
 
-# EXCLUSION MATCHING
+# SYNC FILTER
+# A file syncs only if its .claude-relative path matches an include pattern and
+# no exclusion. Include patterns are globs matched against the full relative
+# path (`*` spans directories), e.g. 'CLAUDE.md', 'skills/*'.
+
+DEFAULT_INCLUDES=(
+    'CLAUDE.md'
+    'skills/*'
+    'statusline.ps1'
+)
+
+# Managed by Claude Code itself; never synced regardless of config.
+BUILTIN_EXCLUSIONS=(
+    'skills/synced/*'
+    'skills/.trash/*'
+)
+
+# Sets globals _CS_INCLUDES and _CS_EXCLUSIONS from the config JSON in $1.
+load_sync_filter() {
+    local config="$1" line
+    _CS_INCLUDES=()
+    if jq -e 'has("includes") and .includes != null' <<< "$config" >/dev/null; then
+        while IFS= read -r line; do
+            [[ -n "$line" ]] && _CS_INCLUDES+=("$line")
+        done < <(jq -r '.includes[]' <<< "$config")
+    else
+        _CS_INCLUDES=("${DEFAULT_INCLUDES[@]}")
+    fi
+    _CS_EXCLUSIONS=("${BUILTIN_EXCLUSIONS[@]}")
+    while IFS= read -r line; do
+        [[ -n "$line" ]] && _CS_EXCLUSIONS+=("$line")
+    done < <(jq -r '.exclusions // [] | .[]' <<< "$config")
+}
+
+is_included() {
+    local rel_path="$1" pattern
+    for pattern in "${_CS_INCLUDES[@]+"${_CS_INCLUDES[@]}"}"; do
+        # shellcheck disable=SC2254
+        case "$rel_path" in
+            $pattern) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# Returns 0 if the .claude-relative path should be synced.
+is_synced() {
+    local rel_path="$1"
+    # Never touch git metadata, even if an include pattern would match it.
+    [[ "$rel_path" == .git || "$rel_path" == .git/* ]] && return 1
+    is_included "$rel_path" || return 1
+    ! is_excluded "$rel_path" "${_CS_EXCLUSIONS[@]+"${_CS_EXCLUSIONS[@]}"}"
+}
+
+# Prints the repo-relative path prefix of sync_dir ("" when syncing the repo root).
+get_subdir_prefix() {
+    local repo_dir="$1" sync_dir="$2" prefix
+    [[ "$sync_dir" == "$repo_dir" ]] && return 0
+    prefix="${sync_dir#"$repo_dir/"}"
+    printf '%s/' "${prefix%/}"
+}
+
+# Prints the .claude-relative path for a repo-relative path; returns 1 if the
+# path lies outside the sync subdirectory.
+to_claude_rel() {
+    local repo_rel="$1" prefix="$2"
+    if [[ -z "$prefix" ]]; then
+        printf '%s' "$repo_rel"
+    elif [[ "$repo_rel" == "$prefix"* ]]; then
+        printf '%s' "${repo_rel#"$prefix"}"
+    else
+        return 1
+    fi
+}
+
+# Reads repo-relative paths on stdin, prints those whose .claude-relative path is synced.
+filter_synced_repo_paths() {
+    local prefix="$1" line claude_rel
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        claude_rel=$(to_claude_rel "$line" "$prefix") || continue
+        is_synced "$claude_rel" && printf '%s\n' "$line"
+    done
+    return 0
+}
 
 is_excluded() {
     local rel_path="$1"
@@ -72,14 +156,12 @@ is_excluded() {
 copy_claude_to_repo() {
     local claude_dir="$1"
     local repo_dir="$2"
-    shift 2
-    # Remaining args are exclusion patterns.
 
     [[ -d "$claude_dir" ]] || return 0
 
     while IFS= read -r -d '' full_path; do
         local rel_path="${full_path#"$claude_dir/"}"
-        is_excluded "$rel_path" "$@" && continue
+        is_synced "$rel_path" || continue
         local dest="$repo_dir/$rel_path"
         mkdir -p "$(dirname "$dest")"
         cp -f "$full_path" "$dest"
@@ -91,12 +173,10 @@ copy_claude_to_repo() {
 copy_repo_to_claude() {
     local repo_dir="$1"
     local claude_dir="$2"
-    shift 2
 
     while IFS= read -r -d '' full_path; do
         local rel_path="${full_path#"$repo_dir/"}"
-        [[ "$rel_path" == .git || "$rel_path" == .git/* ]] && continue
-        is_excluded "$rel_path" "$@" && continue
+        is_synced "$rel_path" || continue
         local dest="$claude_dir/$rel_path"
         mkdir -p "$(dirname "$dest")"
         cp -f "$full_path" "$dest"
@@ -108,12 +188,10 @@ copy_repo_to_claude() {
 remove_stale_repo_files() {
     local repo_dir="$1"
     local claude_dir="$2"
-    shift 2
 
     while IFS= read -r -d '' full_path; do
         local rel_path="${full_path#"$repo_dir/"}"
-        [[ "$rel_path" == .git || "$rel_path" == .git/* ]] && continue
-        is_excluded "$rel_path" "$@" && continue
+        is_synced "$rel_path" || continue
         if [[ ! -f "$claude_dir/$rel_path" ]]; then
             rm -f "$full_path"
             echo "$rel_path"
@@ -125,11 +203,10 @@ remove_stale_repo_files() {
 remove_stale_claude_files() {
     local claude_dir="$1"
     local sync_dir="$2"
-    shift 2
 
     while IFS= read -r -d '' full_path; do
         local rel_path="${full_path#"$claude_dir/"}"
-        is_excluded "$rel_path" "$@" && continue
+        is_synced "$rel_path" || continue
         if [[ ! -f "$sync_dir/$rel_path" ]]; then
             rm -f "$full_path"
             echo "$rel_path"
@@ -147,35 +224,26 @@ get_local_changed_files() {
     local repo_dir="$2"
     local sync_dir="$3"
     local commit_hash="$4"
-    shift 4
-    # Remaining args are exclusion patterns.
 
-    local subdir_prefix=""
-    if [[ "$sync_dir" != "$repo_dir" ]]; then
-        subdir_prefix="${sync_dir#"$repo_dir/"}"
-        subdir_prefix="${subdir_prefix%/}/"
-    fi
+    local subdir_prefix
+    subdir_prefix=$(get_subdir_prefix "$repo_dir" "$sync_dir")
 
     # Inner subshell so the EXIT trap is always scoped here, even if called directly.
     (
         trap 'git -C "$repo_dir" checkout -- . 2>/dev/null || true' EXIT
 
-        copy_claude_to_repo "$claude_dir" "$sync_dir" "$@" > /dev/null
+        copy_claude_to_repo "$claude_dir" "$sync_dir" > /dev/null
 
         local -a changed=()
         local line
 
         local diff_out
         diff_out=$(git -C "$repo_dir" diff --name-only "$commit_hash" 2>/dev/null) || true
-        while IFS= read -r line; do
-            [[ -n "$line" ]] && changed+=("$line")
-        done <<< "$diff_out"
-
         local untracked_out
         untracked_out=$(git -C "$repo_dir" ls-files --others --exclude-standard 2>/dev/null) || true
         while IFS= read -r line; do
-            [[ -n "$line" ]] && changed+=("$line")
-        done <<< "$untracked_out"
+            changed+=("$line")
+        done < <(printf '%s\n%s\n' "$diff_out" "$untracked_out" | filter_synced_repo_paths "$subdir_prefix")
 
         # Also detect files deleted locally (present at commit but missing in .claude).
         local at_commit_out
@@ -183,12 +251,8 @@ get_local_changed_files() {
         local repo_rel claude_rel
         while IFS= read -r repo_rel; do
             [[ -z "$repo_rel" ]] && continue
-            is_excluded "$repo_rel" "$@" && continue
-
-            claude_rel="$repo_rel"
-            if [[ -n "$subdir_prefix" && "$repo_rel" == "$subdir_prefix"* ]]; then
-                claude_rel="${repo_rel#"$subdir_prefix"}"
-            fi
+            claude_rel=$(to_claude_rel "$repo_rel" "$subdir_prefix") || continue
+            is_synced "$claude_rel" || continue
 
             if [[ ! -f "$claude_dir/$claude_rel" ]]; then
                 local found=0 c
@@ -203,10 +267,11 @@ get_local_changed_files() {
     )
 }
 
-# Prints file paths changed on the remote since commit_hash, one per line.
+# Prints synced file paths changed on the remote since commit_hash, one per line.
 get_remote_changed_files() {
     local repo_dir="$1"
-    local commit_hash="${2:-}"
+    local sync_dir="$2"
+    local commit_hash="${3:-}"
 
     [[ -z "$commit_hash" ]] && return 0
 
@@ -215,7 +280,9 @@ get_remote_changed_files() {
     remote_head="${remote_head// /}"
     [[ "$remote_head" == "$commit_hash" ]] && return 0
 
-    git -C "$repo_dir" diff --name-only "$commit_hash" "$remote_head" 2>/dev/null || true
+    local diff_out
+    diff_out=$(git -C "$repo_dir" diff --name-only "$commit_hash" "$remote_head" 2>/dev/null) || true
+    printf '%s\n' "$diff_out" | filter_synced_repo_paths "$(get_subdir_prefix "$repo_dir" "$sync_dir")"
 }
 
 # Sets globals (all prefixed _CS_):
@@ -228,17 +295,16 @@ test_conflict_exists() {
     local repo_dir="$2"
     local sync_dir="$3"
     local commit_hash="$4"
-    shift 4
 
     _CS_LOCAL_CHANGED=()
     while IFS= read -r line; do
         [[ -n "$line" ]] && _CS_LOCAL_CHANGED+=("$line")
-    done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$commit_hash" "$@")
+    done < <(get_local_changed_files "$claude_dir" "$repo_dir" "$sync_dir" "$commit_hash")
 
     _CS_REMOTE_CHANGED=()
     while IFS= read -r line; do
         [[ -n "$line" ]] && _CS_REMOTE_CHANGED+=("$line")
-    done < <(get_remote_changed_files "$repo_dir" "$commit_hash")
+    done < <(get_remote_changed_files "$repo_dir" "$sync_dir" "$commit_hash")
 
     _CS_CONFLICT_FILES=()
     _CS_HAS_CONFLICT=false

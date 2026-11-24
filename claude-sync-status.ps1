@@ -29,7 +29,7 @@ if ($null -eq $config) {
 $claudeDir  = $config.claudeDir
 $repoDir    = $config.repoDir
 $syncDir    = if ($config.repoSubdir) { Join-Path $repoDir $config.repoSubdir.Replace('/', '\') } else { $repoDir }
-$exclusions = @($config.exclusions)
+$filter     = Get-SyncFilter $config
 $lastSync   = $config.lastSyncCommit
 $lastTime   = $config.lastSyncTime
 
@@ -88,7 +88,7 @@ if ($fetchOk) {
         Write-Host "Remote : no baseline sync yet - cannot compare"
     } else {
         try {
-            $remoteChanged = @(Get-RemoteChangedFiles $repoDir $lastSync)
+            $remoteChanged = @(Get-RemoteChangedFiles $repoDir $syncDir $lastSync $filter)
             if ($remoteChanged.Count -eq 0) {
                 Write-Host "Remote : nothing to pull"
             } else {
@@ -112,7 +112,7 @@ if ($null -eq $lastSync -or $lastSync -eq '') {
     Write-Host "Local  : .claude directory not found at $claudeDir"
 } else {
     try {
-        $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $syncDir $lastSync $exclusions)
+        $localChanged = @(Get-LocalChangedFiles $claudeDir $repoDir $syncDir $lastSync $filter)
         if ($localChanged.Count -eq 0) {
             Write-Host "Local  : nothing to push"
         } else {

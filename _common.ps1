@@ -40,7 +40,76 @@ function Get-RepoDir {
     return Join-Path $env:USERPROFILE '.claude-sync\repo'
 }
 
-# EXCLUSION MATCHING
+# SYNC FILTER
+# A file syncs only if its .claude-relative path matches an include pattern and
+# no exclusion. Include patterns are globs matched against the full relative
+# path (forward slashes, `*` spans directories), e.g. 'CLAUDE.md', 'skills/*'.
+
+$script:DefaultIncludes = @(
+    'CLAUDE.md'
+    'skills/*'
+    'statusline.ps1'
+)
+
+# Managed by Claude Code itself; never synced regardless of config.
+$script:BuiltInExclusions = @(
+    'skills/synced/*'
+    'skills/.trash/*'
+)
+
+function Get-SyncFilter {
+    param([Parameter(Mandatory)][PSCustomObject]$Config)
+    $includes = if ($Config.PSObject.Properties.Name -contains 'includes' -and $null -ne $Config.includes) {
+        @($Config.includes)
+    } else {
+        $script:DefaultIncludes
+    }
+    $exclusions = @($script:BuiltInExclusions) + @($Config.exclusions | Where-Object { $_ })
+    return @{ Includes = @($includes); Exclusions = @($exclusions) }
+}
+
+function Test-IsIncluded {
+    param(
+        [Parameter(Mandatory)][string]$RelPath,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Includes
+    )
+    foreach ($pattern in $Includes) {
+        if ($RelPath -like $pattern) { return $true }
+    }
+    return $false
+}
+
+function Test-IsSynced {
+    param(
+        [Parameter(Mandatory)][string]$RelPath,
+        [Parameter(Mandatory)][hashtable]$Filter
+    )
+    # Never touch git metadata, even if an include pattern would match it
+    if ($RelPath -eq '.git' -or $RelPath.StartsWith('.git/')) { return $false }
+    if (-not (Test-IsIncluded $RelPath $Filter.Includes)) { return $false }
+    return -not (Test-IsExcluded $RelPath $Filter.Exclusions)
+}
+
+# Maps a repo-relative path to a .claude-relative path, or $null if the path
+# lies outside the sync subdirectory.
+function ConvertTo-ClaudeRelPath {
+    param(
+        [Parameter(Mandatory)][string]$RepoRel,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$SubdirPrefix
+    )
+    if ($SubdirPrefix -eq '') { return $RepoRel }
+    if ($RepoRel.StartsWith($SubdirPrefix)) { return $RepoRel.Substring($SubdirPrefix.Length) }
+    return $null
+}
+
+function Get-SubdirPrefix {
+    param(
+        [Parameter(Mandatory)][string]$RepoDir,
+        [Parameter(Mandatory)][string]$SyncDir
+    )
+    if ($SyncDir -eq $RepoDir) { return '' }
+    return $SyncDir.Substring($RepoDir.Length).TrimStart('\', '/').Replace('\', '/') + '/'
+}
 
 function Test-IsExcluded {
     param(
@@ -69,7 +138,7 @@ function Copy-ClaudeToRepo {
     param(
         [Parameter(Mandatory)][string]$ClaudeDir,
         [Parameter(Mandatory)][string]$RepoDir,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     $copied = [System.Collections.Generic.List[string]]::new()
     if (-not (Test-Path $ClaudeDir)) { return $copied.ToArray() }
@@ -77,7 +146,7 @@ function Copy-ClaudeToRepo {
     Get-ChildItem -Path $ClaudeDir -Recurse -File | ForEach-Object {
         $fullPath = $_.FullName
         $relPath  = $fullPath.Substring($ClaudeDir.Length).TrimStart('\', '/').Replace('\', '/')
-        if (Test-IsExcluded $relPath $Exclusions) { return }
+        if (-not (Test-IsSynced $relPath $Filter)) { return }
 
         $dest = Join-Path $RepoDir ($relPath.Replace('/', '\'))
         $destDir = Split-Path $dest -Parent
@@ -94,17 +163,15 @@ function Copy-RepoToClaude {
     param(
         [Parameter(Mandatory)][string]$RepoDir,
         [Parameter(Mandatory)][string]$ClaudeDir,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     $copied = [System.Collections.Generic.List[string]]::new()
 
-    # Skip .git directory entirely
-    Get-ChildItem -Path $RepoDir -Recurse -File | Where-Object {
-        $_.FullName -notmatch [regex]::Escape((Join-Path $RepoDir '.git'))
-    } | ForEach-Object {
+    # Test-IsSynced rejects .git and anything outside the include list
+    Get-ChildItem -Path $RepoDir -Recurse -File | ForEach-Object {
         $fullPath = $_.FullName
         $relPath  = $fullPath.Substring($RepoDir.Length).TrimStart('\', '/').Replace('\', '/')
-        if (Test-IsExcluded $relPath $Exclusions) { return }
+        if (-not (Test-IsSynced $relPath $Filter)) { return }
 
         $dest = Join-Path $ClaudeDir ($relPath.Replace('/', '\'))
         $destDir = Split-Path $dest -Parent
@@ -121,16 +188,14 @@ function Remove-StaleRepoFiles {
     param(
         [Parameter(Mandatory)][string]$RepoDir,
         [Parameter(Mandatory)][string]$ClaudeDir,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     $deleted = [System.Collections.Generic.List[string]]::new()
 
-    Get-ChildItem -Path $RepoDir -Recurse -File | Where-Object {
-        $_.FullName -notmatch [regex]::Escape((Join-Path $RepoDir '.git'))
-    } | ForEach-Object {
+    Get-ChildItem -Path $RepoDir -Recurse -File | ForEach-Object {
         $fullPath = $_.FullName
         $relPath  = $fullPath.Substring($RepoDir.Length).TrimStart('\', '/').Replace('\', '/')
-        if (Test-IsExcluded $relPath $Exclusions) { return }
+        if (-not (Test-IsSynced $relPath $Filter)) { return }
 
         $source = Join-Path $ClaudeDir ($relPath.Replace('/', '\'))
         if (-not (Test-Path $source)) {
@@ -145,14 +210,14 @@ function Remove-StaleClaudeFiles {
     param(
         [Parameter(Mandatory)][string]$ClaudeDir,
         [Parameter(Mandatory)][string]$SyncDir,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     $deleted = [System.Collections.Generic.List[string]]::new()
 
     Get-ChildItem -Path $ClaudeDir -Recurse -File | ForEach-Object {
         $fullPath = $_.FullName
         $relPath  = $fullPath.Substring($ClaudeDir.Length).TrimStart('\', '/').Replace('\', '/')
-        if (Test-IsExcluded $relPath $Exclusions) { return }
+        if (-not (Test-IsSynced $relPath $Filter)) { return }
 
         $repoFile = Join-Path $SyncDir ($relPath.Replace('/', '\'))
         if (-not (Test-Path $repoFile)) {
@@ -171,18 +236,15 @@ function Get-LocalChangedFiles {
         [Parameter(Mandatory)][string]$RepoDir,
         [Parameter(Mandatory)][string]$SyncDir,
         [Parameter(Mandatory)][string]$CommitHash,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     # Prefix to strip when mapping repo-relative paths back to .claude-relative paths
-    $subdirPrefix = ''
-    if ($SyncDir -ne $RepoDir) {
-        $subdirPrefix = $SyncDir.Substring($RepoDir.Length).TrimStart('\', '/').Replace('\', '/') + '/'
-    }
+    $subdirPrefix = Get-SubdirPrefix $RepoDir $SyncDir
 
     # Copy .claude into the repo working tree, ask git what changed vs CommitHash,
     # then restore the working tree. This lets git handle binary files correctly.
     try {
-        Copy-ClaudeToRepo $ClaudeDir $SyncDir $Exclusions | Out-Null
+        Copy-ClaudeToRepo $ClaudeDir $SyncDir $Filter | Out-Null
 
         $diffOutput = & git -C $RepoDir diff --name-only $CommitHash 2>$null
         if ($LASTEXITCODE -ne 0) {
@@ -191,19 +253,19 @@ function Get-LocalChangedFiles {
         # Also include untracked files (new files not yet committed)
         $untrackedOutput = & git -C $RepoDir ls-files --others --exclude-standard 2>$null
         $changed = @(
-            ($diffOutput     | Where-Object { $_ -ne '' })
-            ($untrackedOutput | Where-Object { $_ -ne '' })
+            @($diffOutput) + @($untrackedOutput) | Where-Object {
+                if (-not $_) { return $false }
+                $claudeRel = ConvertTo-ClaudeRelPath $_ $subdirPrefix
+                $null -ne $claudeRel -and (Test-IsSynced $claudeRel $Filter)
+            }
         )
 
         # Also detect files deleted locally (present in repo at CommitHash but not in .claude)
         $atCommit = & git -C $RepoDir ls-tree -r --name-only $CommitHash 2>$null
         if ($LASTEXITCODE -eq 0) {
             foreach ($repoRel in ($atCommit -split "`n" | Where-Object { $_ -ne '' })) {
-                if (Test-IsExcluded $repoRel $Exclusions) { continue }
-                # Strip subdir prefix to get .claude-relative path
-                $claudeRel = if ($subdirPrefix -ne '' -and $repoRel.StartsWith($subdirPrefix)) {
-                    $repoRel.Substring($subdirPrefix.Length)
-                } else { $repoRel }
+                $claudeRel = ConvertTo-ClaudeRelPath $repoRel $subdirPrefix
+                if ($null -eq $claudeRel -or -not (Test-IsSynced $claudeRel $Filter)) { continue }
                 $localFull = Join-Path $ClaudeDir ($claudeRel.Replace('/', '\'))
                 if (-not (Test-Path $localFull)) {
                     if ($changed -notcontains $repoRel) {
@@ -222,7 +284,9 @@ function Get-LocalChangedFiles {
 function Get-RemoteChangedFiles {
     param(
         [Parameter(Mandatory)][string]$RepoDir,
-        [Parameter(Mandatory)][AllowNull()][string]$CommitHash
+        [Parameter(Mandatory)][string]$SyncDir,
+        [Parameter(Mandatory)][AllowNull()][string]$CommitHash,
+        [Parameter(Mandatory)][hashtable]$Filter
     )
     if ($null -eq $CommitHash -or $CommitHash -eq '') {
         return @()
@@ -234,7 +298,12 @@ function Get-RemoteChangedFiles {
 
     $diffOutput = & git -C $RepoDir diff --name-only $CommitHash $remoteHead 2>&1
     if ($LASTEXITCODE -ne 0) { return @() }
-    return $diffOutput -split "`n" | Where-Object { $_ -ne '' }
+    $subdirPrefix = Get-SubdirPrefix $RepoDir $SyncDir
+    return $diffOutput -split "`n" | Where-Object {
+        if (-not $_) { return $false }
+        $claudeRel = ConvertTo-ClaudeRelPath $_ $subdirPrefix
+        $null -ne $claudeRel -and (Test-IsSynced $claudeRel $Filter)
+    }
 }
 
 function Test-ConflictExists {
@@ -243,10 +312,10 @@ function Test-ConflictExists {
         [Parameter(Mandatory)][string]$RepoDir,
         [Parameter(Mandatory)][string]$SyncDir,
         [Parameter(Mandatory)][string]$CommitHash,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Exclusions
+        [Parameter(Mandatory)][hashtable]$Filter
     )
-    $localChanged  = Get-LocalChangedFiles  $ClaudeDir $RepoDir $SyncDir $CommitHash $Exclusions
-    $remoteChanged = Get-RemoteChangedFiles $RepoDir $CommitHash
+    $localChanged  = @(Get-LocalChangedFiles  $ClaudeDir $RepoDir $SyncDir $CommitHash $Filter)
+    $remoteChanged = @(Get-RemoteChangedFiles $RepoDir $SyncDir $CommitHash $Filter)
     $conflictFiles = $localChanged | Where-Object { $remoteChanged -contains $_ }
 
     return @{
