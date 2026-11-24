@@ -232,7 +232,7 @@ get_local_changed_files() {
     (
         # Restore the working tree, including removing untracked copies, so a
         # later push's `git add -A` cannot pick them up.
-        trap 'git -C "$repo_dir" checkout -- . 2>/dev/null || true; git -C "$repo_dir" clean -fdq -e .gitattributes -- "$sync_dir" 2>/dev/null || true' EXIT
+        trap 'git -C "$repo_dir" checkout -- . 2>/dev/null || true; git -C "$repo_dir" clean -fdq -e /.gitattributes -- "$sync_dir" 2>/dev/null || true' EXIT
 
         copy_claude_to_repo "$claude_dir" "$sync_dir" > /dev/null
 
