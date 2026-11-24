@@ -459,18 +459,43 @@ confirm_prompt() {
     [[ "$response" =~ ^[Yy] ]]
 }
 
+# Prints the remote (-) vs local (+) diff of one repo-relative file to /dev/tty.
+# The local copy is placed in the repo working tree so .gitattributes
+# normalization applies, then the working tree is restored.
+show_conflict_diff() {
+    local claude_dir="$1" repo_dir="$2" sync_dir="$3" repo_rel="$4" claude_rel
+    claude_rel=$(to_claude_rel "$repo_rel" "$(get_subdir_prefix "$repo_dir" "$sync_dir")") || return 0
+    (
+        trap 'git -C "$repo_dir" reset -q -- "$repo_rel" 2>/dev/null || true; git -C "$repo_dir" checkout -- "$repo_rel" 2>/dev/null || true; git -C "$repo_dir" clean -fq -- "$repo_rel" 2>/dev/null || true' EXIT
+        if [[ -f "$claude_dir/$claude_rel" ]]; then
+            mkdir -p "$(dirname "$repo_dir/$repo_rel")"
+            cp "$claude_dir/$claude_rel" "$repo_dir/$repo_rel"
+            # Intent-to-add so a file that is new on both sides still shows in the diff
+            git -C "$repo_dir" -c core.safecrlf=false add -N -- "$repo_rel" 2>/dev/null || true
+        else
+            rm -f "$repo_dir/$repo_rel"
+        fi
+        printf '\nDiff of %s (- remote, + local):\n' "$repo_rel"
+        git -C "$repo_dir" -c core.safecrlf=false diff --color=always FETCH_HEAD -- "$repo_rel" || true
+    ) >/dev/tty
+}
+
+# Args: claude_dir repo_dir sync_dir conflict_file...
 # Prints "local" or "remote" to stdout. All prompts go to /dev/tty.
 select_conflict_winner() {
+    local claude_dir="$1" repo_dir="$2" sync_dir="$3"
+    shift 3
     printf '\n' >/dev/tty
     printf 'CONFLICT: The following files changed both locally and remotely:\n' >/dev/tty
-    local f
+    local i=1 f
     for f in "$@"; do
-        printf '  %s\n' "$f" >/dev/tty
+        printf '  [%d] %s\n' "$i" "$f" >/dev/tty
+        i=$((i + 1))
     done
     printf '\n' >/dev/tty
     while true; do
-        local response
-        read -r -p "Which version wins? [L]ocal / [R]emote " response </dev/tty
+        local response pick
+        read -r -p "Which version wins? [L]ocal / [R]emote / [D]iff " response </dev/tty
         if [[ "$response" =~ ^[Ll] ]]; then
             echo "local"
             return 0
@@ -479,6 +504,20 @@ select_conflict_winner() {
             echo "remote"
             return 0
         fi
-        printf 'Please enter L or R.\n' >/dev/tty
+        if [[ "$response" =~ ^[Dd] ]]; then
+            pick=1
+            if [[ $# -gt 1 ]]; then
+                read -r -p "Diff which file? [1-$#] " pick </dev/tty
+            fi
+            # No leading zero (bash would read it as octal), at most 4 digits (no overflow)
+            if [[ "$pick" =~ ^[1-9][0-9]{0,3}$ ]] && (( pick <= $# )); then
+                show_conflict_diff "$claude_dir" "$repo_dir" "$sync_dir" "${!pick}"
+            else
+                printf 'Please enter a number from 1 to %d.\n' "$#" >/dev/tty
+            fi
+            printf '\n' >/dev/tty
+            continue
+        fi
+        printf 'Please enter L, R or D.\n' >/dev/tty
     done
 }
