@@ -133,11 +133,12 @@ Conflicts are detected using the `lastSyncCommit` recorded after each successful
 
 ```
 CONFLICT: The following files changed both locally and remotely:
-  settings.json
+  [1] settings.json
 
-Which version wins? [L]ocal / [R]emote:
+Which version wins? [L]ocal / [R]emote / [D]iff:
 ```
 
+Choosing **Diff** shows the remote (-) vs local (+) diff of a file (you pick the number when several conflict), then asks again.  
 Choosing **Local** aborts the pull and leaves your files untouched. Run push to upload your version.  
 Choosing **Remote** overwrites your local files with the repo version.
 

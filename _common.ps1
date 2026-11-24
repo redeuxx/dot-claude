@@ -386,18 +386,78 @@ function Confirm-Prompt {
     return $response -match '^[Yy]'
 }
 
+# Prints the remote (-) vs local (+) diff of one repo-relative file. The local
+# copy is placed in the repo working tree so .gitattributes normalization applies,
+# then the working tree is restored.
+function Show-ConflictDiff {
+    param(
+        [Parameter(Mandatory)][string]$ClaudeDir,
+        [Parameter(Mandatory)][string]$RepoDir,
+        [Parameter(Mandatory)][string]$SyncDir,
+        [Parameter(Mandatory)][string]$RepoRel
+    )
+    # Windows PowerShell 5.1 turns redirected native stderr into terminating
+    # errors under Stop; expected git noise (e.g. checkout of an untracked path
+    # during cleanup) must not abort the pull
+    $ErrorActionPreference = 'Continue'
+    $claudeRel = ConvertTo-ClaudeRelPath $RepoRel (Get-SubdirPrefix $RepoDir $SyncDir)
+    $localFull = Join-Path $ClaudeDir ($claudeRel.Replace('/', '\'))
+    $repoFull  = Join-Path $RepoDir ($RepoRel.Replace('/', '\'))
+    # git writes UTF-8; decode it as such so non-ASCII text is not garbled
+    $oldEncoding = [Console]::OutputEncoding
+    try {
+        try { [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false) } catch { }
+        if (Test-Path -LiteralPath $localFull) {
+            New-Item -ItemType Directory -Force -Path (Split-Path $repoFull) | Out-Null
+            Copy-Item -LiteralPath $localFull -Destination $repoFull -Force
+            # Intent-to-add so a file that is new on both sides still shows in the diff
+            & git -C $RepoDir -c core.safecrlf=false add -N -- $RepoRel 2>&1 | Out-Null
+        } elseif (Test-Path -LiteralPath $repoFull) {
+            Remove-Item -LiteralPath $repoFull -Force
+        }
+        Write-Host ""
+        Write-Host "Diff of ${RepoRel} (- remote, + local):"
+        # Out-Host keeps git's output out of the caller's return value
+        & git -C $RepoDir -c core.safecrlf=false --no-pager diff --color=always FETCH_HEAD -- $RepoRel 2>&1 | Out-Host
+    } finally {
+        & git -C $RepoDir reset -q -- $RepoRel 2>&1 | Out-Null
+        & git -C $RepoDir checkout -- $RepoRel 2>&1 | Out-Null
+        & git -C $RepoDir clean -fq -- $RepoRel 2>&1 | Out-Null
+        try { [Console]::OutputEncoding = $oldEncoding } catch { }
+    }
+}
+
 function Select-ConflictWinner {
-    param([Parameter(Mandatory)][string[]]$ConflictFiles)
+    param(
+        [Parameter(Mandatory)][string[]]$ConflictFiles,
+        [Parameter(Mandatory)][string]$ClaudeDir,
+        [Parameter(Mandatory)][string]$RepoDir,
+        [Parameter(Mandatory)][string]$SyncDir
+    )
     Write-Host ""
     Write-Host "CONFLICT: The following files changed both locally and remotely:"
-    foreach ($f in $ConflictFiles) {
-        Write-Host "  $f"
+    for ($i = 0; $i -lt $ConflictFiles.Count; $i++) {
+        Write-Host "  [$($i + 1)] $($ConflictFiles[$i])"
     }
     Write-Host ""
     while ($true) {
-        $response = Read-Host "Which version wins? [L]ocal / [R]emote"
+        $response = Read-Host "Which version wins? [L]ocal / [R]emote / [D]iff"
         if ($response -match '^[Ll]') { return 'local' }
         if ($response -match '^[Rr]') { return 'remote' }
-        Write-Host "Please enter L or R."
+        if ($response -match '^[Dd]') {
+            $pick = '1'
+            if ($ConflictFiles.Count -gt 1) {
+                $pick = Read-Host "Diff which file? [1-$($ConflictFiles.Count)]"
+            }
+            $n = 0
+            if ([int]::TryParse($pick, [ref]$n) -and $n -ge 1 -and $n -le $ConflictFiles.Count) {
+                Show-ConflictDiff $ClaudeDir $RepoDir $SyncDir $ConflictFiles[$n - 1]
+            } else {
+                Write-Host "Please enter a number from 1 to $($ConflictFiles.Count)."
+            }
+            Write-Host ""
+            continue
+        }
+        Write-Host "Please enter L, R or D."
     }
 }

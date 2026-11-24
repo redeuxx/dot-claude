@@ -62,7 +62,7 @@ if ($null -ne $lastSync -and (Test-Path $claudeDir)) {
     $conflictInfo = Test-ConflictExists $claudeDir $repoDir $syncDir $lastSync $filter
 
     if ($conflictInfo.HasConflict) {
-        $winner = Select-ConflictWinner $conflictInfo.ConflictFiles
+        $winner = Select-ConflictWinner $conflictInfo.ConflictFiles $claudeDir $repoDir $syncDir
         if ($winner -eq 'local') {
             Write-Host ""
             Write-Host "Keeping local changes. Run claude-sync-push.ps1 to upload them."

@@ -67,7 +67,7 @@ if [[ -n "$last_sync" && -d "$claude_dir" ]]; then
     test_conflict_exists "$claude_dir" "$repo_dir" "$sync_dir" "$last_sync"
 
     if [[ "$_CS_HAS_CONFLICT" == true ]]; then
-        winner=$(select_conflict_winner "${_CS_CONFLICT_FILES[@]+"${_CS_CONFLICT_FILES[@]}"}")
+        winner=$(select_conflict_winner "$claude_dir" "$repo_dir" "$sync_dir" "${_CS_CONFLICT_FILES[@]+"${_CS_CONFLICT_FILES[@]}"}")
         if [[ "$winner" == local ]]; then
             echo ""
             echo "Keeping local changes. Run claude-sync-push.sh to upload them."
