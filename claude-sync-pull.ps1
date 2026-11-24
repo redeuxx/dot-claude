@@ -16,6 +16,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_common.ps1"
+Show-ScriptUpdateNotice $PSScriptRoot
 
 # LOAD CONFIG
 

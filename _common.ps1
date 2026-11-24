@@ -461,3 +461,55 @@ function Select-ConflictWinner {
         Write-Host "Please enter L, R or D."
     }
 }
+
+# SCRIPT UPDATE CHECK
+
+# Tells the user when the scripts' own git checkout is behind its upstream.
+# Notify only, never auto-update. Silent when git is missing, the scripts are
+# not a git checkout, there is no upstream, or the fetch fails or takes over
+# 5 seconds (offline, dropped packets), so it can never block a sync.
+function Show-ScriptUpdateNotice {
+    param([Parameter(Mandatory)][string]$ScriptDir)
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
+    $names = 'GIT_TERMINAL_PROMPT', 'GCM_INTERACTIVE', 'GIT_SSH_COMMAND'
+    $saved = @{}
+    foreach ($name in $names) { $saved[$name] = [Environment]::GetEnvironmentVariable($name) }
+    try {
+        # Only check a checkout that actually tracks these scripts
+        & git -C $ScriptDir ls-files --error-unmatch _common.ps1 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { return }
+        # Never prompt for credentials, passphrases or host keys just for an update check
+        $env:GIT_TERMINAL_PROMPT = '0'
+        $env:GCM_INTERACTIVE     = 'never'
+        $configSsh = & git -C $ScriptDir config core.sshCommand 2>$null
+        if (-not $saved['GIT_SSH_COMMAND'] -and -not $configSsh) {
+            $env:GIT_SSH_COMMAND = 'ssh -o BatchMode=yes -o ConnectTimeout=5'
+        }
+        # Hard 5 second cap, since git has no connect timeout of its own.
+        # ponytail: Kill() stops git.exe only; a stuck child helper exits on its own timeout
+        $p = Start-Process git -ArgumentList "-C `"$ScriptDir`" fetch --quiet" -WindowStyle Hidden -PassThru
+        $null = $p.Handle  # 5.1 needs the handle cached to read ExitCode later
+        if (-not $p.WaitForExit(5000)) {
+            try { $p.Kill() } catch { }
+            return
+        }
+        if ($p.ExitCode -ne 0) { return }
+        $counts = (& git -C $ScriptDir rev-list --left-right --count 'HEAD...@{upstream}' 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or $counts -notmatch '^(\d+)\s+(\d+)$') { return }
+        $ahead  = [int]$Matches[1]
+        $behind = [int]$Matches[2]
+        if ($behind -eq 0) { return }
+        if ($ahead -gt 0) {
+            Write-Host "Script updates available: $behind new commit(s) upstream, but your checkout also has $ahead local commit(s)."
+            Write-Host "  Merge or rebase in `"$ScriptDir`" to update."
+        } else {
+            Write-Host "Script updates available: $behind new commit(s) upstream. To update, run:"
+            Write-Host "  git -C `"$ScriptDir`" pull --ff-only"
+        }
+        Write-Host ""
+    } catch {
+        return
+    } finally {
+        foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
+    }
+}

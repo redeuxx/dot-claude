@@ -142,6 +142,17 @@ Choosing **Diff** shows the remote (-) vs local (+) diff of a file (you pick the
 Choosing **Local** aborts the pull and leaves your files untouched. Run push to upload your version.  
 Choosing **Remote** overwrites your local files with the repo version.
 
+## Script Updates
+
+When the scripts themselves are a git clone, every script first fetches that clone and tells you if newer versions exist upstream:
+
+```
+Script updates available: 2 new commit(s) upstream. To update, run:
+  git -C "/path/to/dot-claude" pull --ff-only
+```
+
+Nothing is updated automatically. The check is skipped silently when offline, when the scripts are not a git clone, or when the branch has no upstream.
+
 ## Typical Workflow
 
 **Setting up a new machine:**
