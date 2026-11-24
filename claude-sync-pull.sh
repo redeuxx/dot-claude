@@ -77,7 +77,6 @@ if [[ -n "$last_sync" && -d "$claude_dir" ]]; then
     elif [[ ${#_CS_LOCAL_CHANGED[@]} -gt 0 ]]; then
         echo ""
         echo "You have local changes that have not been pushed:"
-        local f
         for f in "${_CS_LOCAL_CHANGED[@]}"; do
             echo "  $f"
         done
